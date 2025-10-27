@@ -1,0 +1,37 @@
+services:
+  frontend:
+    build:
+      context: "./chat-frontend/"
+      dockerfile: "./Dockerfile"
+    ports:
+      - "80:3000"
+  api:
+    env_file:
+      - "chat-api/.env"
+    build:
+      context: ./chat-api/
+      dockerfile: ./Dockerfile
+    ports:
+      - "8000:8000"
+  db:
+    image: postgres
+    env_file:
+      - "chat-db/.env"
+    volumes:
+      - ".chat-db/postgres:/data/postgres"
+    ports:
+      - "5332:5332"
+    networks:
+      - db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+networks:
+  db:
+    driver: bridge
+volumes:
+  db:
+  

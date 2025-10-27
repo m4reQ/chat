@@ -1,0 +1,6 @@
+chat-frontend/node_modules/
+chat-frontend/coverage/
+chat-frontend/build/
+chat-api/**/__pycache__/
+chat-api/.venv/
+**/.env
