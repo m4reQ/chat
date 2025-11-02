@@ -6,37 +6,53 @@ services:
     ports:
       - "3000:80"
     restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+        restart: true
   api:
     env_file:
       - "chat-api/.env"
     build:
       context: ./chat-api/
-      dockerfile: ./Dockerfile
+      dockerfile: ./Dockerfile-dev
     ports:
       - "8000:8000"
+    volumes:
+      - ./chat-api:/api
+    networks:
+      - db
     depends_on:
       db:
         condition: service_healthy
         restart: true
+    healthcheck:
+      test: "curl --fail http://localhost:8000/health || exit 1"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
   db:
-    image: postgres
+    build:
+      context: ./chat-db/
+      dockerfile: ./Dockerfile
     env_file:
       - "chat-db/.env"
     volumes:
-      - ".chat-db/postgres:/data/postgres"
+      - ".chat-db/data:/var/lib/mysql"
     ports:
-      - "5332:5332"
+      - "3306:3306"
     networks:
       - db
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -d postgres"]
-      interval: 30s
-      timeout: 10s
+      test: "mysqladmin ping -hlocalhost -uroot -p$$MYSQL_ROOT_PASSWORD"
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
       retries: 5
 networks:
   db:
     driver: bridge
 volumes:
   db:
-  

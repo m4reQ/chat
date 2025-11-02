@@ -1,0 +1,7 @@
+services:
+  build:
+    # disable fastapi hot-reload in production
+    dockerfile: ./Dockerfile-prod
+  api:
+    # Remove volume required for fastapi hot-reload
+    volumes:

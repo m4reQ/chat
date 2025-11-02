@@ -5,4 +5,4 @@ chat-api/**/__pycache__/
 **/.vscode/
 **/.venv/
 **/.env
-.chat-db/postgres/
+.chat-db/data/
