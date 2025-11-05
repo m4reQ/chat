@@ -18,6 +18,7 @@ services:
       dockerfile: ./Dockerfile-dev
     ports:
       - "8000:8000"
+      - "5678:5678" # for python remote debugger
     volumes:
       - ./chat-api:/api
     networks:
@@ -39,7 +40,7 @@ services:
     env_file:
       - "chat-db/.env"
     volumes:
-      - ".chat-db/data:/var/lib/mysql"
+      - "./chat-db/data:/var/lib/mysql"
     ports:
       - "3306:3306"
     networks:
@@ -56,3 +57,4 @@ networks:
     driver: bridge
 volumes:
   db:
+    name: "chat-database"
