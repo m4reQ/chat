@@ -5,4 +5,5 @@ chat-api/**/__pycache__/
 **/.vscode/
 **/.venv/
 **/.env
-.chat-db/data/
+**/.mypy_cache
+chat-db/data/
