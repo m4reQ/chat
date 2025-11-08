@@ -22,9 +22,12 @@ services:
     volumes:
       - ./chat-api:/api
     networks:
-      - db
+      - chat-internal
     depends_on:
       db:
+        condition: service_healthy
+        restart: true
+      email:
         condition: service_healthy
         restart: true
     healthcheck:
@@ -44,7 +47,7 @@ services:
     ports:
       - "3306:3306"
     networks:
-      - db
+      - chat-internal
     restart: unless-stopped
     healthcheck:
       test: "mysqladmin ping -hlocalhost -uroot -p$$MYSQL_ROOT_PASSWORD"
@@ -52,9 +55,34 @@ services:
       timeout: 5s
       start_period: 30s
       retries: 5
+  email:
+    image: foxcpp/maddy:latest
+    ports:
+      - "25:25"
+      - "143:143"
+      - "465:465"
+      - "587:587"
+      - "993:993"
+    env_file:
+      - "./chat-email/.env"
+    tmpfs:
+      - /run/maddy
+    healthcheck:
+      test: "nc -v -z localhost 25"
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+    networks:
+      - chat-internal
+    volumes:
+      - "./chat-email/maddy.conf:/data/maddy.conf:ro"
+      - "./chat-email/certificates:/data/tls:ro"
 networks:
-  db:
+  chat-internal:
     driver: bridge
 volumes:
   db:
     name: "chat-database"
+  email:
+    name: "chat-email"

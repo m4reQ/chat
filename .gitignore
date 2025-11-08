@@ -7,3 +7,4 @@ chat-api/**/__pycache__/
 **/.env
 **/.mypy_cache
 chat-db/data/
+chat-email/certificates/
