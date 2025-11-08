@@ -2,10 +2,10 @@ FROM python:3.14
 
 WORKDIR /api
 
-COPY ./requirements.txt /api/requirements.txt
+COPY ./requirements-prod.txt /api/requirements-prod.txt
 
 RUN python3 -m pip install --upgrade pip
-RUN python3 -m pip install --no-cache-dir --upgrade -r /api/requirements.txt
+RUN python3 -m pip install --no-cache-dir --upgrade -r /api/requirements-prod.txt
 
 COPY ./app /api/app
 
