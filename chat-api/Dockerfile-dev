@@ -6,6 +6,7 @@ COPY ./requirements.txt /api/requirements.txt
 
 RUN python3 -m pip install --upgrade pip
 RUN python3 -m pip install --no-cache-dir --upgrade -r /api/requirements.txt
+RUN python3 -m pip install --no-cache-dir --upgrade -r /api/requirements-dev.txt
 
 COPY ./app /api/app
 
