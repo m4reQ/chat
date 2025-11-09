@@ -12,7 +12,7 @@ services:
         restart: true
   api:
     env_file:
-      - "chat-api/.env"
+      - "./chat-api/.env"
     build:
       context: ./chat-api/
       dockerfile: ./Dockerfile-dev
@@ -41,7 +41,7 @@ services:
       context: ./chat-db/
       dockerfile: ./Dockerfile
     env_file:
-      - "chat-db/.env"
+      - "./chat-db/.env"
     volumes:
       - "./chat-db/data:/var/lib/mysql"
     ports:
