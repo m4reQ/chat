@@ -7,3 +7,4 @@ dependency-injector
 pyjwt
 itsdangerous
 mysqlclient
+minio

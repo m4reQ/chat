@@ -8,3 +8,4 @@ chat-api/**/__pycache__/
 **/.mypy_cache
 chat-db/data/
 chat-email/certificates/
+chat-fs/data/
