@@ -1,6 +1,14 @@
 CREATE TABLE users(
     id SERIAL PRIMARY KEY,
-    username VARCHAR(256) NOT NULL,
-    passwordHash BINARY(60) NOT NULL,
-    email VARCHAR(254) NOT NULL,
-    flags INT NOT NULL DEFAULT 0);
+    username VARCHAR(256) UNIQUE NOT NULL,
+    email VARCHAR(254) UNIQUE NOT NULL,
+    password_hash BINARY(60) NOT NULL,
+    country_code CHAR(2) NOT NULL,
+    is_email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at DATETIME NOT NULL DEFAULT NOW());
+
+CREATE TABLE api_keys(
+    id SERIAL PRIMARY KEY,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    api_key CHAR(32) UNIQUE NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT NOW());
