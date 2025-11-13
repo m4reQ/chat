@@ -10,9 +10,9 @@ All values inside are documented. Next change all of these files names' to `.env
 
 ### Building image and running container
 > **_NOTE:_** This application uses docker for runtime and docker compose for orchestrating build.
+
 To build and start the container use `docker-compose up --build`. Ensure that Docker Desktop or any
 other docker provider is running on the target machine. This will build the image and start all services.
-
 
 ## Documentation
 API docs are available out-of-the-box when using development mode. After starting the application simply go to `http://localhost:8000/docs` or `http://localhost:8000/redoc`.
