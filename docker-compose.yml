@@ -91,6 +91,8 @@ services:
       - "9001:9001" # Web console
     volumes:
       - "./chat-fs/data:/data"
+    networks:
+      - chat-internal
     healthcheck:
       test: curl --fail http://localhost:9000/minio/health/ready || exit 1
       interval: 30s
@@ -105,3 +107,5 @@ volumes:
     name: "chat-database"
   email:
     name: "chat-email"
+  fs:
+    name: "chat-fs"

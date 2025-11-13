@@ -1,12 +1,16 @@
 import sqlmodel
 import fastapi
+import minio
 from sqlalchemy.engine import Engine
 
 from app.models.sql import SQLUser
 
 class UserService:
-    def __init__(self, db_engine: Engine) -> None:
+    def __init__(self,
+                 db_engine: Engine,
+                 fs_client: minio.Minio) -> None:
         self._db_engine = db_engine
+        self._fs_client = fs_client
 
     # TODO Do not return plain SQL model
     def get_user(self, user_id: int) -> SQLUser:

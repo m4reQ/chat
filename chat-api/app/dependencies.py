@@ -1,5 +1,6 @@
 import sqlmodel
 import smtplib
+import minio
 from dependency_injector import containers, providers
 
 from app.services import AuthorizationService, DatetimeService, UserService
@@ -26,6 +27,13 @@ class Container(containers.DeclarativeContainer):
         config.smtp.port.as_int(),
         config.smtp.user,
         config.smtp.password)
+    fs_client = providers.Singleton(
+        minio.Minio,
+        endpoint=config.fs.endpoint,
+        access_key=config.fs.user,
+        secret_key=config.fs.password,
+        region=config.fs.region,
+        secure=False)
     auth_service = providers.Factory(
         AuthorizationService,
         db_engine,
@@ -42,4 +50,5 @@ class Container(containers.DeclarativeContainer):
     datetime_service = providers.Singleton(DatetimeService)
     user_service = providers.Factory(
         UserService,
-        db_engine)
+        db_engine,
+        fs_client)

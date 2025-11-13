@@ -2,6 +2,7 @@ import fastapi
 import inspect
 
 from app import routers, dependencies
+from app.lifespan import app_lifespan
 
 dependency_container = dependencies.Container()
 dependency_container.config.db.username.from_env('DB_USERNAME')
@@ -19,9 +20,19 @@ dependency_container.config.smtp.host.from_env('SMTP_HOST')
 dependency_container.config.smtp.port.from_env('SMTP_PORT')
 dependency_container.config.smtp.user.from_env('SMTP_USER')
 dependency_container.config.smtp.password.from_env('SMTP_PASSWORD')
-dependency_container.wire(packages=['app.routers'], warn_unresolved=True)
+dependency_container.config.fs.endpoint.from_env('FS_ENDPOINT')
+dependency_container.config.fs.user.from_env('FS_USER')
+dependency_container.config.fs.password.from_env('FS_PASSWORD')
+dependency_container.config.fs.region.from_env('FS_REGION')
+dependency_container.config.fs.profile_images_bucket.from_value('profile-images')
+dependency_container.config.fs.attachments_bucket.from_value('attachments')
+dependency_container.wire(packages=['app.routers'], modules=['app.lifespan'], warn_unresolved=True)
 
-app = fastapi.FastAPI()
+app = fastapi.FastAPI(lifespan=app_lifespan)
+
+# include all API routers
+for (_, router) in inspect.getmembers(routers, lambda x: isinstance(x, fastapi.APIRouter)):
+    app.include_router(router)
 
 @app.get('/health')
 async def get_health():
@@ -30,7 +41,3 @@ async def get_health():
     '''
 
     return 'ok'
-
-# include all API routers
-for (_, router) in inspect.getmembers(routers, lambda x: isinstance(x, fastapi.APIRouter)):
-    app.include_router(router)
