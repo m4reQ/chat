@@ -1,7 +1,7 @@
 # main dir: /frontend
 # dist dir: /frontend/dist
 
-FROM node:25-alpine AS builder
+FROM node:25.1-alpine AS builder
 WORKDIR /frontend
 COPY ./package*.json /frontend
 RUN npm install
