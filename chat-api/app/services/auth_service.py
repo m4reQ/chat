@@ -12,14 +12,13 @@ import fastapi
 import datetime
 import itsdangerous
 from email.mime.text import MIMEText
-from sqlalchemy.engine import Engine
 from dependency_injector.providers import Factory
 
 from app.models.sql import SQLAPIKey, SQLUser
 
 class AuthorizationService:
     def __init__(self,
-                 db_engine: Engine,
+                 db_session_factory: Factory[sqlmodel.Session],
                  min_password_length: int,
                  password_salt_rounds: int,
                  jwt_secret: bytes,
@@ -30,7 +29,7 @@ class AuthorizationService:
                  email_confirm_code_max_age: int,
                  smtp_user: str,
                  smtp_client_factory: Factory[smtplib.SMTP]) -> None:
-        self._db_engine = db_engine
+        self._db_session_factory = db_session_factory
         self._min_password_length = min_password_length
         self._password_salt_rounds = password_salt_rounds
         self._jwt_secret = jwt_secret
@@ -55,7 +54,7 @@ class AuthorizationService:
                         'error': 'Badly formatted API key.',
                         'api_key': str(api_key)})
             
-        with sqlmodel.Session(self._db_engine) as db_session:
+        with self._db_session_factory() as db_session:
             query = sqlmodel.select(SQLAPIKey).where(SQLAPIKey.api_key == api_key)
             result = db_session.exec(query)
             api_key_data = result.one_or_none()
@@ -133,7 +132,7 @@ class AuthorizationService:
                     'error': 'User password must be a valid UTF-8 string.',
                     'password': password})
         
-        with sqlmodel.Session(self._db_engine) as session:
+        with self._db_session_factory() as session:
             stmt = sqlmodel.select(SQLUser).where(SQLUser.username == username)
             user = session.exec(stmt).one_or_none()
         
@@ -188,7 +187,7 @@ class AuthorizationService:
                     'current_password': current_password,
                     'new_password': new_password})
         
-        with sqlmodel.Session(self._db_engine) as session:
+        with self._db_session_factory() as session:
             query = sqlmodel.select(SQLUser).where(SQLUser.id == user_id)
             user = session.exec(query).one_or_none()
         
@@ -234,7 +233,7 @@ class AuthorizationService:
                     'error': 'Email verification code is invalid.',
                     'code': confirmation_code})
         
-        with sqlmodel.Session(self._db_engine) as session:
+        with self._db_session_factory() as session:
             query = sqlmodel.select(SQLUser).where(SQLUser.id == user_id)
             user = session.exec(query).one_or_none()
 
@@ -254,7 +253,7 @@ class AuthorizationService:
         return True
 
     def send_verification_email(self, user_id: int) -> bool:
-        with sqlmodel.Session(self._db_engine) as session:
+        with self._db_session_factory() as session:
             query = sqlmodel.select(SQLUser).where(SQLUser.id == user_id)
             user = session.exec(query).one_or_none()
         
@@ -273,7 +272,7 @@ class AuthorizationService:
         return True
 
     def reset_user_password(self, username: str) -> None:
-        with sqlmodel.Session(self._db_engine, expire_on_commit=False) as session:
+        with self._db_session_factory(expire_on_commit=False) as session:
             query = sqlmodel.select(SQLUser).where(SQLUser.username == username)
             user = session.exec(query).one_or_none()
 
@@ -321,7 +320,7 @@ class AuthorizationService:
                     bcrypt.gensalt(rounds=self._password_salt_rounds)),
                 country_code=country_code)
         
-        with sqlmodel.Session(self._db_engine) as session:
+        with self._db_session_factory() as session:
             session.add(user)
 
             try:

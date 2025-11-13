@@ -1,5 +1,6 @@
 import sqlmodel
 import smtplib
+import sqlalchemy.engine
 import minio
 from dependency_injector import containers, providers
 
@@ -21,6 +22,9 @@ class Container(containers.DeclarativeContainer):
         config.db.username,
         config.db.password,
         config.db.address)
+    db_session_factory = providers.Factory(
+        sqlmodel.Session,
+        db_engine)
     smtp_client_factory = providers.Factory(
         _create_smtp_client,
         config.smtp.host,
@@ -36,7 +40,7 @@ class Container(containers.DeclarativeContainer):
         secure=False)
     auth_service = providers.Factory(
         AuthorizationService,
-        db_engine,
+        db_session_factory.provider,
         config.security.min_password_length.as_int(),
         config.security.password_salt_rounds.as_int(),
         config.security.jwt_secret,
@@ -50,5 +54,5 @@ class Container(containers.DeclarativeContainer):
     datetime_service = providers.Singleton(DatetimeService)
     user_service = providers.Factory(
         UserService,
-        db_engine,
+        db_session_factory.provider,
         fs_client)
