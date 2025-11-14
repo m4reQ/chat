@@ -55,4 +55,5 @@ class Container(containers.DeclarativeContainer):
     user_service = providers.Factory(
         UserService,
         db_session_factory.provider,
-        fs_client)
+        fs_client,
+        config.user.profile_picture_size.as_int())

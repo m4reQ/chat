@@ -6,7 +6,6 @@ from app.models.requests import ChangePasswordData, RegisterData
 from app.services import AuthorizationService, DatetimeService
 
 oauth2_scheme = fastapi.security.OAuth2PasswordBearer(tokenUrl='auth/login')
-api_key_header = fastapi.security.APIKeyHeader(name='x-api-key')
 router = fastapi.APIRouter(
     prefix='/auth',
     tags=['auth'])
@@ -14,10 +13,7 @@ router = fastapi.APIRouter(
 @router.post('/register')
 @inject
 async def auth_register(data: RegisterData,
-                        api_key: str = fastapi.Security(api_key_header),
                         auth_service: AuthorizationService = fastapi.Depends(Provide['auth_service'])):
-    auth_service.validate_api_key(api_key)
-    
     user_id = auth_service.register_user(data.username, data.email, data.password, data.country_code)
     
     return fastapi.responses.JSONResponse(
@@ -29,10 +25,7 @@ async def auth_register(data: RegisterData,
 @router.post('/send-verification-email/{user_id}')
 @inject
 async def auth_send_verification_email(user_id: int,
-                                       api_key: str = fastapi.Security(api_key_header),
                                        auth_service: AuthorizationService = fastapi.Depends(Provide['auth_service'])):
-    auth_service.validate_api_key(api_key)
-
     email_sent = auth_service.send_verification_email(user_id)
     if email_sent:
         return fastapi.responses.JSONResponse(
@@ -50,10 +43,7 @@ async def auth_send_verification_email(user_id: int,
 @router.get('/verify-email')
 @inject
 async def auth_verify_email(code: str,
-                            api_key: str = fastapi.Security(api_key_header),
                             auth_service: AuthorizationService = fastapi.Depends(Provide['auth_service'])):
-    auth_service.validate_api_key(api_key)
-    
     email_confirmed = auth_service.confirm_user_email(code)
     if email_confirmed:
         return fastapi.responses.JSONResponse(
@@ -67,9 +57,7 @@ async def auth_verify_email(code: str,
 @router.post('/reset-password/{username}')
 @inject
 async def auth_reset_password(username: str,
-                              api_key: str = fastapi.Security(api_key_header),
                               auth_service: AuthorizationService = fastapi.Depends(Provide['auth_service'])):
-    auth_service.validate_api_key(api_key)
     auth_service.reset_user_password(username)
     return fastapi.responses.JSONResponse(
         status_code=fastapi.status.HTTP_200_OK,
@@ -81,10 +69,7 @@ async def auth_reset_password(username: str,
 @inject
 async def auth_change_password(data: ChangePasswordData,
                                user_jwt: str = fastapi.Depends(oauth2_scheme),
-                               api_key: str = fastapi.Security(api_key_header),
                                auth_service: AuthorizationService = fastapi.Depends(Provide['auth_service'])):
-    auth_service.validate_api_key(api_key)
-    
     user_id = auth_service.decode_jwt(user_jwt)
     auth_service.change_user_password(user_id, data.current_password, data.new_password)
 
@@ -95,10 +80,8 @@ async def auth_change_password(data: ChangePasswordData,
 @router.post('/login')
 @inject
 async def auth_login(login_data: fastapi.security.OAuth2PasswordRequestForm = fastapi.Depends(),
-                     api_key: str = fastapi.Depends(api_key_header),
                      auth_service: AuthorizationService = fastapi.Depends(Provide['auth_service']),
                      datetime_service: DatetimeService = fastapi.Depends(Provide['datetime_service'])):
-    auth_service.validate_api_key(api_key)
     user_jwt = auth_service.login_user(
         login_data.username,
         login_data.password,

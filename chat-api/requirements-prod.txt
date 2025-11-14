@@ -8,3 +8,4 @@ pyjwt
 itsdangerous
 mysqlclient
 minio
+Pillow

@@ -1,7 +1,7 @@
 import fastapi
 import inspect
 
-from app import routers, dependencies
+from app import routers, dependencies, middleware
 from app.lifespan import app_lifespan
 
 dependency_container = dependencies.Container()
@@ -26,9 +26,15 @@ dependency_container.config.fs.password.from_env('FS_PASSWORD')
 dependency_container.config.fs.region.from_env('FS_REGION')
 dependency_container.config.fs.profile_images_bucket.from_value('profile-images')
 dependency_container.config.fs.attachments_bucket.from_value('attachments')
-dependency_container.wire(packages=['app.routers'], modules=['app.lifespan'], warn_unresolved=True)
+dependency_container.config.user.profile_picture_size.from_env('PROFILE_PICTURE_SIZE')
+dependency_container.wire(
+    packages=['app.routers'],
+    modules=['app.lifespan', 'app.middleware'],
+    warn_unresolved=True)
 
 app = fastapi.FastAPI(lifespan=app_lifespan)
+app.middleware('http')(middleware.validate_api_key_header)
+app.middleware('http')(middleware.add_process_time_header)
 
 # include all API routers
 for (_, router) in inspect.getmembers(routers, lambda x: isinstance(x, fastapi.APIRouter)):
