@@ -1,9 +1,13 @@
 import fastapi
 import fastapi.security
+import typing as t
 from dependency_injector.wiring import Provide, inject
 
 from app.models.requests import ChangePasswordData, RegisterData
+from app.models.responses import OAuthInvalidRequest, OAuthToken, OAuthInvalidClient, OAuthUnauthorizedClient
 from app.services import AuthorizationService, DatetimeService
+
+# TODO Add endpoint docs
 
 oauth2_scheme = fastapi.security.OAuth2PasswordBearer(tokenUrl='auth/login')
 router = fastapi.APIRouter(
@@ -77,19 +81,24 @@ async def auth_change_password(data: ChangePasswordData,
         status_code=fastapi.status.HTTP_200_OK,
         content={'message': 'Successfully changed user password.'})
 
-@router.post('/login')
+@router.post(
+    path='/login',
+    responses={
+        fastapi.status.HTTP_200_OK: {'model': OAuthToken },
+        fastapi.status.HTTP_401_UNAUTHORIZED: {'model': OAuthInvalidClient},
+        fastapi.status.HTTP_400_BAD_REQUEST: {'model': t.Union[OAuthInvalidRequest, OAuthUnauthorizedClient]}})
 @inject
 async def auth_login(login_data: fastapi.security.OAuth2PasswordRequestForm = fastapi.Depends(),
                      auth_service: AuthorizationService = fastapi.Depends(Provide['auth_service']),
                      datetime_service: DatetimeService = fastapi.Depends(Provide['datetime_service'])):
-    user_jwt = auth_service.login_user(
-        login_data.username,
-        login_data.password,
-        datetime_service.get_datetime_utc_now())
     return fastapi.responses.JSONResponse(
-        content={
-            'access_token': user_jwt,
-            'token_type': 'bearer'})
+        content=OAuthToken(
+            access_token=auth_service.login_user(
+                login_data.username,
+                login_data.password,
+                datetime_service.get_datetime_utc_now()),
+            expires_in=auth_service.get_jwt_expire_time().seconds).model_dump(),
+        headers={'Cache-Control': 'no-store'})
 
 async def auth_logout() -> None:
     pass

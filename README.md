@@ -8,6 +8,9 @@ Getting up the application is simple and requires only few steps.
 First thing you should do after cloning the repository is to find all `.env-template` files and fill in their contents as appropriate.
 All values inside are documented. Next change all of these files names' to `.env` for docker-compose to be able to find them.
 
+### Email server certificates
+If you plan to use TLS you need to include SSL certificates in the "chat-email/certificates" directory. You might need to also adjust "maddy.conf" in the same directory (see: [TLS configuration](https://maddy.email/reference/tls/)).
+
 ### Building image and running container
 > **_NOTE:_** This application uses docker for runtime and docker compose for orchestrating build.
 

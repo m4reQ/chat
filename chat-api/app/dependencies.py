@@ -1,6 +1,6 @@
 import sqlmodel
+import datetime
 import smtplib
-import sqlalchemy.engine
 import minio
 from dependency_injector import containers, providers
 
@@ -44,7 +44,7 @@ class Container(containers.DeclarativeContainer):
         config.security.min_password_length.as_int(),
         config.security.password_salt_rounds.as_int(),
         config.security.jwt_secret,
-        config.security.jwt_expire_time.as_int(),
+        config.security.jwt_expire_time.as_(lambda x: datetime.timedelta(seconds=int(x))),
         config.security.email_verification_key,
         config.security.email_verification_salt,
         config.security.email_verification_token_salt_rounds.as_int(),

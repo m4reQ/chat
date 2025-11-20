@@ -1,4 +1,5 @@
 import fastapi
+import fastapi.middleware.cors
 import inspect
 
 from app import routers, dependencies, middleware
@@ -35,6 +36,19 @@ dependency_container.wire(
 app = fastapi.FastAPI(lifespan=app_lifespan)
 app.middleware('http')(middleware.validate_api_key_header)
 app.middleware('http')(middleware.add_process_time_header)
+app.add_middleware(
+    fastapi.middleware.cors.CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=('http://localhost:3000', 'http://localhost:80'),
+    allow_methods=('*',),
+    allow_headers=('*',))
+
+@app.exception_handler(fastapi.HTTPException)
+async def http_exception_handler(_: fastapi.Request, exc: fastapi.HTTPException):
+    return fastapi.responses.JSONResponse(
+        content=exc.detail,
+        status_code=exc.status_code,
+        headers=exc.headers)
 
 # include all API routers
 for (_, router) in inspect.getmembers(routers, lambda x: isinstance(x, fastapi.APIRouter)):

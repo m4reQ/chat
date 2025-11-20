@@ -1,6 +1,6 @@
-node_modules
+.env
+.env-template
 Dockerfile-dev
 Dockerfile-prod
 .dockerignore
-.env
-.env-template
+**/__pycache__/

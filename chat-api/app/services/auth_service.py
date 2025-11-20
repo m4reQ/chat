@@ -15,6 +15,25 @@ from email.mime.text import MIMEText
 from dependency_injector.providers import Factory
 
 from app.models.sql import SQLAPIKey, SQLUser
+from app.models.responses import OAuthInvalidRequest, OAuthInvalidClient, OAuthUnauthorizedClient
+
+class OAuthInvalidRequestException(fastapi.HTTPException):
+    def __init__(self, description: str) -> None:
+        super().__init__(
+            status_code=fastapi.status.HTTP_400_BAD_REQUEST,
+            detail=OAuthInvalidRequest(error_description=description).model_dump())
+
+class OAuthInvalidClientException(fastapi.HTTPException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
+            detail=OAuthInvalidClient().model_dump())
+
+class OAuthUnauthorizedClientException(fastapi.HTTPException):
+    def __init__(self, description: str) -> None:
+        super().__init__(
+            status_code=fastapi.status.HTTP_400_BAD_REQUEST,
+            detail=OAuthUnauthorizedClient(error_description=description).model_dump())
 
 class AuthorizationService:
     def __init__(self,
@@ -42,6 +61,9 @@ class AuthorizationService:
         self._smtp_client_factory = smtp_client_factory
         self._smtp_user = smtp_user
         self._email_verification_token_salt_rounds = email_verification_token_salt_rounds
+    
+    def get_jwt_expire_time(self) -> datetime.timedelta:
+        return self._jwt_expire_time
 
     def validate_api_key(self, api_key: str | uuid.UUID) -> None:
         if isinstance(api_key, str):
@@ -72,25 +94,6 @@ class AuthorizationService:
                 detail={
                     'error': 'Provided API key is inactive.',
                     'api_key': str(api_key)})
-
-    def encode_jwt(self,
-                   user_id: int,
-                   utc_now: datetime.datetime) -> str:
-        try:
-            return jwt.encode(
-                payload={
-                    'iss': 'chat',
-                    'sub': str(user_id),
-                    'iat': utc_now,
-                    'exp': utc_now + datetime.timedelta(minutes=self._jwt_expire_time)},
-                key=self._jwt_secret,
-                algorithm='HS256') # TODO Get JWT algo from env
-        except jwt.InvalidTokenError:
-            raise fastapi.HTTPException(
-                status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail={
-                    'error': 'Failed to encode JWT for the user with given ID.',
-                    'id': user_id})
 
     # TODO JWT refreshing  
     # def refresh_jwt(self) -> None: ...
@@ -126,46 +129,32 @@ class AuthorizationService:
         try:
             password_encoded = password.encode('utf-8')
         except UnicodeEncodeError:
-            raise fastapi.HTTPException(
-                status_code=fastapi.status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-                detail={
-                    'error': 'User password must be a valid UTF-8 string.',
-                    'password': password})
+            raise OAuthInvalidRequestException('User password must be a valid UTF-8 string.')
         
         with self._db_session_factory() as session:
             stmt = sqlmodel.select(SQLUser).where(SQLUser.username == username)
             user = session.exec(stmt).one_or_none()
         
-        if user is None:
-            raise fastapi.HTTPException(
-                status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
-                headers={'WWW-Authenticate': 'Bearer'},
-                detail={
-                    'error': 'Invalid username or password provided.',
-                    'username': username,
-                    'password': password})
-        
-        if not bcrypt.checkpw(password_encoded, user.password_hash):
-            raise fastapi.HTTPException(
-                status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
-                headers={'WWW-Authenticate': 'Bearer'},
-                detail={
-                    'error': 'Invalid username or password provided.',
-                    'username': username,
-                    'password': password})
+        if user is None or not bcrypt.checkpw(password_encoded, user.password_hash):
+            raise OAuthInvalidClientException()
         
         # for security reasons we only tell user that it's email is verified after
         # it provided correct username and password combination.
-        # This results in slower check but results in better security.
+        # This results in slower check but better security.
         if not user.is_email_verified:
-            raise fastapi.HTTPException(
-                status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
-                headers={'WWW-Authenticate': 'Bearer'},
-                detail={
-                    'error': 'User email has to be verified before login.',
-                    'email': user.email})
+            raise OAuthUnauthorizedClientException('User email has to be verified before login.')
         
-        return self.encode_jwt(user.id, utc_now)
+        try:
+            return jwt.encode(
+                payload={
+                    'iss': 'chat',
+                    'sub': str(user.id),
+                    'iat': utc_now,
+                    'exp': utc_now + self._jwt_expire_time},
+                key=self._jwt_secret,
+                algorithm='HS256') # TODO Get JWT algo from env
+        except jwt.InvalidTokenError:
+            raise OAuthInvalidRequestException('Failed to encode JWT for the provided user.')
 
     # TODO Implement user logout
     def logout_user(self) -> None: ...
