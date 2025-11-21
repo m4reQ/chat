@@ -1,0 +1,16 @@
+.login-button {
+    transition: background-color 0.2s ease;
+}
+
+.reset-password-link {
+    font-size: 0.8em;
+    text-align: center;
+}
+
+label[for=save-login-info-checkbox] {
+    flex-grow: 1;
+    font-size: 0.8em;
+    color: var(--start-page-stroke-color);
+    margin-top: auto;
+    margin-bottom: auto;
+}

@@ -1,0 +1,8 @@
+.button-generic {
+    border-radius: var(--start-page-border-radius);
+    background-color: var(--start-page-accent-color);
+    color: var(--start-page-select-option-bg-color);
+    text-align: center;
+    padding-top: 4%;
+    padding-bottom: 4%;
+}

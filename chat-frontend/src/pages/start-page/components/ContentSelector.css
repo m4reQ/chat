@@ -1,0 +1,19 @@
+.content-selector-container {
+    background-color: #F1F1F1;
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    padding: 3px;
+    gap: 3px;
+    border-radius: var(--start-page-border-radius);
+}
+
+.content-selector-button {
+    font-size: 0.9em;
+    flex-grow: 1;
+    text-align: center;
+    border-radius: var(--start-page-border-radius);
+    background-color: var(--start-page-select-option-bg-color);
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
