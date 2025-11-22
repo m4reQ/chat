@@ -1,20 +1,17 @@
 import axios from "axios";
 
-interface MakeBackendRequestProps {
-    endpoint: string;
-    method: "post" | "get" | "put",
+export async function getPasswordValidationRules(): Promise<[RegExp, number]> {
+    const response = await axios.request({
+        url: "/auth/login",
+        method: "get",
+        baseURL: process.env.API_BASE_URL,
+        headers: { "X-Api-Key": process.env.API_KEY },
+        validateStatus: _ => true });
+    if (response.status === 200) {
+        return [
+            new RegExp(response.data.regex),
+            response.data.min_password_length];
+    }
 
-}
-
-function makeBackendRequest({
-    endpoint,
-    method = "get",
-    
-    }: MakeBackendRequestProps) {
-    const baseURL = process.env.API_BASE_URL;
-    const apiKey = process.env.API_KEY;
-
-    return axios.request({
-
-    })
+    throw new Error("Failed to get password validation rules.");
 }

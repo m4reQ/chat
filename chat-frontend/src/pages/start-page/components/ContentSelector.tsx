@@ -1,32 +1,38 @@
 import { useState } from "react";
 import "./ContentSelector.css"
+import { useNavigate } from "react-router";
+
+interface ButtonData {
+    text: string;
+    redirectPath: string;
+};
 
 interface ContentSelectorProps {
-    buttonHeaders: string[];
-    onTabSelected: (arg0: number) => any;
+    currentPath: string;
 }
 
 export default function ContentSelector({
-    buttonHeaders,
-    onTabSelected}: ContentSelectorProps) {
-    const [activeButtonIndex, setActiveButtonIndex] = useState(0);
+    currentPath}: ContentSelectorProps) {
+    const navigate = useNavigate();
+
+    const buttonsData: ButtonData[] = [
+        {text: "Sign In", redirectPath: "/login"},
+        {text: "Sign Up", redirectPath: "/register"},
+    ];
 
     return <div className="content-selector-container">
-        {buttonHeaders.map(
-            (btnHeader, index, _) =>
+        {buttonsData.map(
+            ({text, redirectPath}, index, _) =>
                 <button
                     key={index}
                     className="font-rest content-selector-button"
                     type="button"
                     style={{
-                        backgroundColor: index !== activeButtonIndex
+                        backgroundColor: currentPath !== redirectPath
                             ? "#F1F1F1"
                             : "var(--start-page-select-option-bg-color)" }}
-                    onClick={
-                        (_) => {
-                            onTabSelected(index);
-                            setActiveButtonIndex(index); }}>
-                    {btnHeader}
+                    onClick={_ => navigate(redirectPath) }>
+                    {text}
                 </button>)}
     </div>;
 }

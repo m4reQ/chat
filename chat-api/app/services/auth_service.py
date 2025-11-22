@@ -50,6 +50,7 @@ class AuthorizationService:
                  smtp_client_factory: Factory[smtplib.SMTP]) -> None:
         self._db_session_factory = db_session_factory
         self._min_password_length = min_password_length
+        self._password_validation_regex = re.compile(fr'^(?=.{{{min_password_length},}})(?=.*\d)(?=.*[A-Z])(?=.*[^A-Za-z0-9]).*$')
         self._password_salt_rounds = password_salt_rounds
         self._jwt_secret = jwt_secret
         self._jwt_expire_time = jwt_expire_time
@@ -61,6 +62,12 @@ class AuthorizationService:
         self._smtp_client_factory = smtp_client_factory
         self._smtp_user = smtp_user
         self._email_verification_token_salt_rounds = email_verification_token_salt_rounds
+
+    def get_min_password_length(self) -> int:
+        return self._min_password_length
+    
+    def get_password_validation_regex(self) -> str:
+        return self._password_validation_regex.pattern
     
     def get_jwt_expire_time(self) -> datetime.timedelta:
         return self._jwt_expire_time
@@ -163,18 +170,22 @@ class AuthorizationService:
                             user_id: int,
                             current_password: str,
                             new_password: str) -> None:
-        self._validate_password(new_password)
-        
-        try:
-            current_password_encoded = current_password.encode('utf-8')
-            new_password_encoded = new_password.encode('utf-8')
-        except UnicodeEncodeError:
-            raise fastapi.HTTPException(
+        current_password_encoded = self._check_string_utf8_encodable(
+            current_password,
+            fastapi.HTTPException(
                 status_code=fastapi.status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
                 detail={
-                    'error': 'Current password and new password must be valid UTF-8 strings.',
-                    'current_password': current_password,
-                    'new_password': new_password})
+                    'error': 'Current password must be a valid UTF-8 string.',
+                    'current_password': current_password}))
+        new_password_encoded = self._check_string_utf8_encodable(
+            new_password,
+            fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail={
+                    'error': 'New password must be a valid UTF-8 string.',
+                    'new_password': new_password}))
+
+        self._validate_password(new_password)
         
         with self._db_session_factory() as session:
             query = sqlmodel.select(SQLUser).where(SQLUser.id == user_id)
@@ -295,11 +306,16 @@ class AuthorizationService:
                       email: str,
                       password: str,
                       country_code: str) -> int:
+        password_encoded = self._check_string_utf8_encodable(
+            password,
+            fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail={
+                    'error': 'Password must be a valid UTF-8 string.',
+                    'password': password}))
+
         self._validate_password(password)
-        password_encoded = self._encode_password(password)
-
         self._validate_country_code(country_code)
-
         self._validate_email(email)
 
         user = SQLUser(
@@ -332,11 +348,21 @@ class AuthorizationService:
         
         return user.id
     
-    def _validate_password(self, password: str) -> None:
-        self._check_password_valid_length(password)
-        self._check_password_contains_digits(password)
-        self._check_password_contains_special_chars(password)
+    def _check_string_utf8_encodable(self, value: str, exc: Exception) -> bytes:
+        try:
+            return value.encode('utf-8')
+        except UnicodeEncodeError:
+            raise exc
     
+    def _validate_password(self, password: str) -> None:
+        if not self._password_validation_regex.search(password):
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_400_BAD_REQUEST,
+                detail={
+                    'error': f'Password must be at least {self._min_password_length} characters_long and contain at least: one capital letter, one digit, one special character.',
+                    'validation_regex': self.get_password_validation_regex(),
+                    'password': password})
+
     def _send_password_reset_email(self, new_password: str, email: str) -> None:
         self._send_email_to(
             email,
@@ -391,37 +417,3 @@ class AuthorizationService:
                 detail={
                     'error': 'Provided email address does not exist.',
                     'field': 'email'})
-
-    def _check_password_valid_length(self, password: str) -> None:
-        if len(password) < self._min_password_length:
-            raise fastapi.HTTPException(
-                status_code=fastapi.status.HTTP_400_BAD_REQUEST,
-                detail={
-                    'error': f'Password must be at least {self._min_password_length} characters long.',
-                    'password': password})
-    
-    def _check_password_contains_digits(self, password: str) -> None:
-        if not re.search(r'\d', password):
-            raise fastapi.HTTPException(
-                status_code=fastapi.status.HTTP_400_BAD_REQUEST,
-                detail={
-                    'error': 'Password must contain at least one digit.',
-                    'password': password})
-
-    def _check_password_contains_special_chars(self, password: str) -> None:
-        if not re.search(r'[!@#$%^&*(),.?\":{}|<>_\-+=~`]', password):
-            raise fastapi.HTTPException(
-                status_code=fastapi.status.HTTP_400_BAD_REQUEST,
-                detail={
-                    'error': 'Password must contain at least one special character.',
-                    'password': password})
-    
-    def _encode_password(self, password: str) -> bytes:
-        try:
-            return password.encode('utf-8')
-        except UnicodeEncodeError:
-            raise fastapi.HTTPException(
-                status_code=fastapi.status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-                detail={
-                    'error': 'Password must be a valid UTF-8 string.',
-                    'password': password})

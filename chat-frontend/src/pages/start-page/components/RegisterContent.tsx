@@ -3,6 +3,7 @@ import Checkbox from "../../../components/Checkbox.tsx";
 import TextField from "./TextField.tsx";
 import Link from "../../../components/Link.tsx";
 import Button from "../../../components/Button.tsx";
+import { getPasswordValidationRules } from "../../../backend.ts";
 import "./RegisterContent.css";
 
 interface RegisterContentProps {
@@ -17,7 +18,7 @@ export default function RegisterContent({onError}: RegisterContentProps) {
     const [passwordValidateError, setPasswordValidateError] = useState<string | undefined>(undefined);
     const [passwordRepeatValidateError, setPasswordRepeatValidateError] = useState<string | undefined>(undefined);
 
-    function onRegister(formData: FormData) {
+    async function onRegister(formData: FormData) {
         setRegisterInProgress(true);
 
         const username = formData.get("username") as string;
@@ -64,6 +65,22 @@ export default function RegisterContent({onError}: RegisterContentProps) {
             anyValueInvalid = true;
         } else if (passwordRepeat && passwordsMatch) {
             setPasswordRepeatValidateError(undefined);
+        }
+
+        let regex: RegExp | null = null;
+        let minPasswordLength: number | null = null;
+        try {
+            [regex, minPasswordLength] = await getPasswordValidationRules();
+        } catch (exc) {
+            // onError()
+            return;
+        }
+        
+        if (!regex.test(password)) {
+            setPasswordValidateError(`Password must be at least ${minPasswordLength} characters long and contain at least: one capital letter, one number and one special character.`);
+            anyValueInvalid = true;
+        } else {
+            setPasswordValidateError(undefined);
         }
 
         if (anyValueInvalid) {

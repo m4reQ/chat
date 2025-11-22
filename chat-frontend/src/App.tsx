@@ -3,6 +3,9 @@ import { BrowserRouter, Route, Routes } from "react-router";
 import { useState } from "react";
 import StartPage from "./pages/start-page/StartPage.tsx";
 import "./App.module.css";
+import { LoginContent } from "./pages/start-page/components/LoginContent.tsx";
+import RegisterContent from "./pages/start-page/components/RegisterContent.tsx";
+import IndexPage from "./pages/index-page/IndexPage.tsx";
 
 export default function App() {
   const [showErrorPopup, setShowErrorPopup] = useState(false);
@@ -20,7 +23,25 @@ export default function App() {
           onClose={() => setShowErrorPopup(false)}/>
       : null}
     <Routes>
-      <Route path="/" element={<StartPage onError={onError} />} />
+      <Route
+        index
+        element={<IndexPage />} />
+      <Route
+        path="/login"
+        element={
+          <StartPage
+            content={{
+              headerText: "Welcome Back",
+              subHeaderText: "Hello, please enter your login details",
+              mainElement: <LoginContent onError={onError} />}} />} />
+      <Route
+        path="/register"
+        element={
+          <StartPage
+            content={{
+              headerText: "Create account",
+              subHeaderText: "Hi, please enter details for Your new account",
+              mainElement: <RegisterContent onError={onError} />}} />} />
     </Routes>
   </BrowserRouter>;
 }

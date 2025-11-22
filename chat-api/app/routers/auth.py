@@ -9,10 +9,20 @@ from app.services import AuthorizationService, DatetimeService
 
 # TODO Add endpoint docs
 
+# TODO Return password requirements from some endpoint
+# password regex: 
+
 oauth2_scheme = fastapi.security.OAuth2PasswordBearer(tokenUrl='auth/login')
 router = fastapi.APIRouter(
     prefix='/auth',
     tags=['auth'])
+
+@router.get('/password-validation-rules')
+@inject
+async def auth_get_password_validation_rules(auth_service: AuthorizationService = fastapi.Depends(Provide['auth_service'])):
+    return {
+        'regex': auth_service.get_password_validation_regex(),
+        'min_password_length': auth_service.get_min_password_length()}
 
 @router.post('/register')
 @inject
