@@ -2,7 +2,7 @@ import axios from "axios";
 
 export async function getPasswordValidationRules(): Promise<[RegExp, number]> {
     const response = await axios.request({
-        url: "/auth/login",
+        url: "/auth/password-validation-rules",
         method: "get",
         baseURL: process.env.API_BASE_URL,
         headers: { "X-Api-Key": process.env.API_KEY },

@@ -254,9 +254,8 @@ class CountryCode(enum.StrEnum):
 
 class RegisterData(pydantic.BaseModel):
     username: str
-    email: pydantic.EmailStr
+    email: str
     password: str
-    country_code: str
 
 class ChangePasswordData(pydantic.BaseModel):
     current_password: str

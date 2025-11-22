@@ -27,13 +27,18 @@ async def auth_get_password_validation_rules(auth_service: AuthorizationService 
 @router.post('/register')
 @inject
 async def auth_register(data: RegisterData,
+                        request: fastapi.Request,
                         auth_service: AuthorizationService = fastapi.Depends(Provide['auth_service'])):
-    user_id = auth_service.register_user(data.username, data.email, data.password, data.country_code)
-    
+    user_id = auth_service.register_user(
+        data.username,
+        data.email,
+        data.password,
+        request.client.host)
     return fastapi.responses.JSONResponse(
         content={
             'message': 'Successfully created new user.',
             'user_id': user_id},
+        headers={'Location': f'http://localhost:8000/user/{user_id}'},
         status_code=fastapi.status.HTTP_201_CREATED)
 
 @router.post('/send-verification-email/{user_id}')
@@ -52,21 +57,17 @@ async def auth_send_verification_email(user_id: int,
         content={
             'message': 'Account for the user with given ID was already verified.',
             'user_id': user_id},
-            status_code=fastapi.status.HTTP_200_OK)
+            status_code=fastapi.status.HTTP_204_NO_CONTENT)
 
-@router.get('/verify-email')
+@router.post('/verify-email/{verification_code}')
 @inject
-async def auth_verify_email(code: str,
+async def auth_verify_email(verification_code: str,
                             auth_service: AuthorizationService = fastapi.Depends(Provide['auth_service'])):
-    email_confirmed = auth_service.confirm_user_email(code)
+    email_confirmed = auth_service.confirm_user_email(verification_code)
     if email_confirmed:
-        return fastapi.responses.JSONResponse(
-            content={'message': 'User email was successfully confirmed.'},
-            status_code=fastapi.status.HTTP_200_OK)
+        return fastapi.Response(status_code=fastapi.status.HTTP_200_OK)
     
-    return fastapi.responses.JSONResponse(
-        content={'message': 'User email was already confirmed.'},
-        status_code=fastapi.status.HTTP_200_OK)
+    return fastapi.Response(status_code=fastapi.status.HTTP_204_NO_CONTENT)
 
 @router.post('/reset-password/{username}')
 @inject

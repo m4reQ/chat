@@ -13,6 +13,10 @@
     all: inherit;
 }
 
+.register-button {
+    transition: background-color 0.2s ease;
+}
+
 label[for=tos-checkbox] {
     flex-grow: 1;
     font-size: 0.8em;

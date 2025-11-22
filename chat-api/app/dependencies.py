@@ -2,6 +2,7 @@ import sqlmodel
 import datetime
 import smtplib
 import minio
+import ipinfo
 from dependency_injector import containers, providers
 
 from app.services import AuthorizationService, DatetimeService, UserService
@@ -22,6 +23,9 @@ class Container(containers.DeclarativeContainer):
         config.db.username,
         config.db.password,
         config.db.address)
+    ipinfo_handler = providers.Singleton(
+        lambda access_token: ipinfo.getHandler(access_token),
+        config.ipinfo.access_token)
     db_session_factory = providers.Factory(
         sqlmodel.Session,
         db_engine)
@@ -40,6 +44,7 @@ class Container(containers.DeclarativeContainer):
         secure=False)
     auth_service = providers.Factory(
         AuthorizationService,
+        ipinfo_handler,
         db_session_factory.provider,
         config.security.min_password_length.as_int(),
         config.security.password_salt_rounds.as_int(),

@@ -1,27 +1,28 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import "./Checkbox.css";
 
 interface CheckboxProps {
     id: string,
     label: ReactNode;
-    isChecked: boolean;
-    name?: string,
-    onChecked: (isChecked: boolean) => any;
+    required?: boolean;
+    name?: string;
 };
 
 export default function Checkbox({
     id,
     label,
-    isChecked,
-    onChecked,
+    required = false,
     name = undefined}: CheckboxProps) {
+    const [checked, setChecked] = useState(false);
+
     return <div className="checkbox-container">
         <input
             type="checkbox"
             id={id}
             name={name}
-            checked={isChecked}
-            onChange={e => onChecked(e.target.checked)} />
+            checked={checked}
+            required={required}
+            onChange={e => setChecked(e.target.checked)} />
         <label
             htmlFor={id}
             className="font-rest">

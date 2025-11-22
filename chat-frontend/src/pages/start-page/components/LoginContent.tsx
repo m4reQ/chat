@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import TextField from "./TextField.tsx";
 import axios from "axios";
 import "./LoginContent.css";
 import Checkbox from "../../../components/Checkbox.tsx";
 import Link from "../../../components/Link.tsx";
 import Button from "../../../components/Button.tsx";
+import { useNavigate } from "react-router";
 
 interface LoginContentProps {
     onError: (retryAction: () => any) => any;
@@ -14,7 +15,7 @@ export function LoginContent({onError}: LoginContentProps) {
     const [isLoginInProgress, setIsLoginInProgress] = useState(false);
     const [usernameValidateError, setUsernameValidateError] = useState<string | undefined>(undefined);
     const [passwordValidateError, setPasswordValidateError] = useState<string | undefined>(undefined);
-    const [saveLoginInfoChecked, setSaveLoginInfoChecked] = useState(false);
+    const navigate = useNavigate();
 
     function sendLoginRequest(username: string, password: string) {
         const retryAction = () => sendLoginRequest(username, password);
@@ -36,14 +37,15 @@ export function LoginContent({onError}: LoginContentProps) {
 
                 switch (response.status) {
                     case 200:
-                        // TODO Redirect to main
+                        localStorage.setItem("userJWT", response.data.access_token);
+                        navigate("/app");
                         break;
                     case 401:
                         setPasswordValidateError("Invalid password for the given username!");
                         break;
                     case 400:
                         if (response.data.error === "unauthorized_client") {
-                            // TODO Redirect to email not validated
+                            setUsernameValidateError("Please verify your account by using link sent to Your email, before login.");
                         } else {
                             onError(retryAction);
                         }
@@ -89,6 +91,13 @@ export function LoginContent({onError}: LoginContentProps) {
         sendLoginRequest(username, password);
     }
 
+    useEffect(() => {
+        if (localStorage.getItem("userJWT")) {
+            navigate("/app");
+        }
+    },
+    []);
+
     return <form style={{all: "inherit"}} action={onLogin}>
         <TextField
             name="username"
@@ -105,9 +114,7 @@ export function LoginContent({onError}: LoginContentProps) {
         <Checkbox
             name="saveInfo"
             id="save-login-info-checkbox"
-            label="Save login info"
-            isChecked={saveLoginInfoChecked}
-            onChecked={setSaveLoginInfoChecked} />
+            label="Save login info" />
         <Button
             label="Continue"
             isSubmitButton

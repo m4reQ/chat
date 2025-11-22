@@ -1,13 +1,15 @@
 import ErrorPopup from "./components/ErrorPopup.tsx";
-import { BrowserRouter, Route, Routes } from "react-router";
+import { Route, Routes, useLocation } from "react-router";
 import { useState } from "react";
 import StartPage from "./pages/start-page/StartPage.tsx";
-import "./App.module.css";
 import { LoginContent } from "./pages/start-page/components/LoginContent.tsx";
 import RegisterContent from "./pages/start-page/components/RegisterContent.tsx";
 import IndexPage from "./pages/index-page/IndexPage.tsx";
+import VerifyEmailPage from "./pages/verify-email-page/VerifyEmailPage.tsx";
 
 export default function App() {
+  const location = useLocation();
+
   const [showErrorPopup, setShowErrorPopup] = useState(false);
   const [retryAction, setRetryAction] = useState<(() => any) | undefined>(undefined);
 
@@ -16,13 +18,13 @@ export default function App() {
     setRetryAction(newRetryAction);
   }
 
-  return <BrowserRouter>
+  return <>
     {showErrorPopup
       ? <ErrorPopup
           retryAction={retryAction}
           onClose={() => setShowErrorPopup(false)}/>
       : null}
-    <Routes>
+    <Routes location={location}>
       <Route
         index
         element={<IndexPage />} />
@@ -42,6 +44,12 @@ export default function App() {
               headerText: "Create account",
               subHeaderText: "Hi, please enter details for Your new account",
               mainElement: <RegisterContent onError={onError} />}} />} />
-    </Routes>
-  </BrowserRouter>;
+      <Route
+        path="/verify-email"
+        element={<VerifyEmailPage onError={onError}/>} />
+      <Route
+        path="/app"
+        element={<h1>App page</h1>} />
+      </Routes>
+  </>;
 }

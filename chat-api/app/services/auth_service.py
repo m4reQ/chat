@@ -1,4 +1,6 @@
 import smtplib
+import logging
+import ipinfo
 import sqlalchemy.exc
 import sqlmodel
 import secrets
@@ -7,7 +9,6 @@ import jwt
 import bcrypt
 import uuid
 import email_validator
-import pycountry
 import fastapi
 import datetime
 import itsdangerous
@@ -37,6 +38,7 @@ class OAuthUnauthorizedClientException(fastapi.HTTPException):
 
 class AuthorizationService:
     def __init__(self,
+                 ipinfo_handler: ipinfo.Handler,
                  db_session_factory: Factory[sqlmodel.Session],
                  min_password_length: int,
                  password_salt_rounds: int,
@@ -48,6 +50,7 @@ class AuthorizationService:
                  email_confirm_code_max_age: int,
                  smtp_user: str,
                  smtp_client_factory: Factory[smtplib.SMTP]) -> None:
+        self._ipinfo_handler = ipinfo_handler
         self._db_session_factory = db_session_factory
         self._min_password_length = min_password_length
         self._password_validation_regex = re.compile(fr'^(?=.{{{min_password_length},}})(?=.*\d)(?=.*[A-Z])(?=.*[^A-Za-z0-9]).*$')
@@ -225,12 +228,14 @@ class AuthorizationService:
                 status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
                 detail={
                     'error': 'Email verification code has expired.',
+                    'error_code': 'code_expired',
                     'code': confirmation_code})
         except itsdangerous.BadSignature:
             raise fastapi.HTTPException(
                 status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
                 detail={
                     'error': 'Email verification code is invalid.',
+                    'error_code': 'code_invalid',
                     'code': confirmation_code})
         
         with self._db_session_factory() as session:
@@ -262,6 +267,7 @@ class AuthorizationService:
                 status_code=fastapi.status.HTTP_404_NOT_FOUND,
                 detail={
                     'error': 'User with given ID was not found.',
+                    'error_code': 'user_not_found',
                     'id': user_id})
         
         if user.is_email_verified:
@@ -305,32 +311,34 @@ class AuthorizationService:
                       username: str,
                       email: str,
                       password: str,
-                      country_code: str) -> int:
+                      ip_address: str) -> int:
         password_encoded = self._check_string_utf8_encodable(
             password,
             fastapi.HTTPException(
                 status_code=fastapi.status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
                 detail={
                     'error': 'Password must be a valid UTF-8 string.',
+                    'error_code': 'password_encoding_invalid',
                     'password': password}))
 
         self._validate_password(password)
-        self._validate_country_code(country_code)
         self._validate_email(email)
-
-        user = SQLUser(
+        
+        country_code = self._get_country_code_from_ip(ip_address)
+        password_hash = bcrypt.hashpw(
+            password_encoded,
+            bcrypt.gensalt(rounds=self._password_salt_rounds))
+        
+        with self._db_session_factory(expire_on_commit=False) as session:
+            user = SQLUser(
                 username=username,
                 email=email,
-                password_hash=bcrypt.hashpw(
-                    password_encoded,
-                    bcrypt.gensalt(rounds=self._password_salt_rounds)),
+                password_hash=password_hash,
                 country_code=country_code)
-        
-        with self._db_session_factory() as session:
             session.add(user)
 
             try:
-                session.commit()
+                session.flush()
             except sqlalchemy.exc.IntegrityError:
                 session.rollback()
 
@@ -338,15 +346,40 @@ class AuthorizationService:
                     status_code=fastapi.status.HTTP_409_CONFLICT,
                     detail={
                         'error': 'User with this name or email already exists.',
+                        'error_code': 'user_already_exists',
                         'username': username,
                         'email': email})
             
-            session.refresh(user)
+            session.refresh(user, attribute_names=('id',))
 
-        # generate and send verification code
-        self._send_verification_email(user.id, user.email)
+            try:
+                self._send_verification_email(user.id, user.email)
+            except smtplib.SMTPException:
+                session.rollback()
+
+                raise fastapi.HTTPException(
+                    status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail={
+                        'error': 'Failed to send account verification email.',
+                        'error_code': 'verification_email_fail'})
+
+            session.commit()
         
         return user.id
+    
+    def _get_country_code_from_ip(self, ip_address: str) -> str:
+        try:
+            # TODO More intelligent handling of bogon address for production
+            ip_info = self._ipinfo_handler.getDetails(ip_address).all
+            return 'PL' if ip_info['bogon'] else ip_info['country']
+        except Exception:
+            _logger.exception('Failed to retreive IP info')
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={
+                    'error': 'Failed to retrieve IP info',
+                    'error_code': 'ipinfo_retrieve_fail',
+                    'ip_address': ip_address})
     
     def _check_string_utf8_encodable(self, value: str, exc: Exception) -> bytes:
         try:
@@ -360,6 +393,7 @@ class AuthorizationService:
                 status_code=fastapi.status.HTTP_400_BAD_REQUEST,
                 detail={
                     'error': f'Password must be at least {self._min_password_length} characters_long and contain at least: one capital letter, one digit, one special character.',
+                    'error_code': 'password_format_invalid',
                     'validation_regex': self.get_password_validation_regex(),
                     'password': password})
 
@@ -373,13 +407,14 @@ class AuthorizationService:
         verification_code = self._url_token_generator.dumps(user_id)
         
         # TODO Get url from request or fastapi base URL instead of using hardcoded value
-        verification_url = f'http://localhost:8000/auth/verify-email?code={verification_code}'
+        verification_url = f'http://localhost:3000/auth/verify-email?code={verification_code}'
+        resend_email_url = f'http://localhost:8000/auth/send-verification-email/{user_id}'
         
         # TODO Create email from static template
         self._send_email_to(
             email,
             'Account verification',
-            f'Your user account has been successfully created.\nTo activate it, please visit {verification_url}.')
+            f'Your user account has been successfully created.\nTo activate it, please visit {verification_url}.\nGo to {resend_email_url} to send verification code again.')
             
     def _send_email_to(self, email: str, subject: str, text: str) -> None:
         content = MIMEText(text)
@@ -393,15 +428,6 @@ class AuthorizationService:
                 (email,),
                 content.as_bytes())
 
-    def _validate_country_code(self, country_code: str) -> None:
-        country_info = pycountry.countries.get(alpha_2=country_code)
-        if country_info is None:
-            raise fastapi.HTTPException(
-                status_code=fastapi.status.HTTP_400_BAD_REQUEST,
-                detail={
-                    'error': 'Country code must be a valid ISO 3166 country code.',
-                    'field': 'country_code'})
-    
     def _validate_email(self, email: str) -> None:
         try:
             email_validator.validate_email(email)
@@ -410,10 +436,14 @@ class AuthorizationService:
                 status_code=fastapi.status.HTTP_400_BAD_REQUEST,
                 detail={
                     'error': 'Provided email address is not valid.',
-                    'field': 'email'})
+                    'error_code': 'email_invalid',
+                    'email': email})
         except email_validator.EmailUndeliverableError:
             raise fastapi.HTTPException(
                 status_code=fastapi.status.HTTP_400_BAD_REQUEST,
                 detail={
                     'error': 'Provided email address does not exist.',
-                    'field': 'email'})
+                    'error_code': 'email_doesnt_exist',
+                    'email': email})
+
+_logger = logging.getLogger(__name__)

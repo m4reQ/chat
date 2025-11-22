@@ -5,6 +5,7 @@ import Link from "../../../components/Link.tsx";
 import Button from "../../../components/Button.tsx";
 import { getPasswordValidationRules } from "../../../backend.ts";
 import "./RegisterContent.css";
+import axios from "axios";
 
 interface RegisterContentProps {
     onError: (retryAction: () => any) => any;
@@ -12,7 +13,6 @@ interface RegisterContentProps {
 
 export default function RegisterContent({onError}: RegisterContentProps) {
     const [registerInProgress, setRegisterInProgress] = useState(false);
-    const [tosAgreementChecked, setTosAgreementChecked] = useState(false);
     const [usernameValidateError, setUsernameValidateError] = useState<string | undefined>(undefined);
     const [emailValidateError, setEmailValidateError] = useState<string | undefined>(undefined);
     const [passwordValidateError, setPasswordValidateError] = useState<string | undefined>(undefined);
@@ -48,6 +48,7 @@ export default function RegisterContent({onError}: RegisterContentProps) {
         if (!passwordsMatch) {
             setPasswordValidateError("Passwords do not match!");
             setPasswordRepeatValidateError("Passwords do not match!");
+            anyValueInvalid = true;
         } else {
             setPasswordValidateError(undefined);
             setPasswordRepeatValidateError(undefined);
@@ -87,6 +88,57 @@ export default function RegisterContent({onError}: RegisterContentProps) {
             setRegisterInProgress(false);
             return;
         }
+
+        axios.request({
+            url: "/auth/register",
+            method: "post",
+            baseURL: process.env.API_BASE_URL,
+            data: {
+                username: username,
+                email: email,
+                password: password,
+                password_repeat: passwordRepeat },
+            headers: { "X-Api-Key": process.env.API_KEY },
+            validateStatus: _ => true})
+            .then(response => {
+                switch (response.status) {
+                    case 201:
+                        // nice
+                        break;
+                    case 415:
+                        setPasswordValidateError("Password must only include UTF-8 characters.");
+                        break;
+                    case 409:
+                        setEmailValidateError("User with provided email or username already exists.");
+                        setUsernameValidateError("User with provided email or username already exists.");
+                        break;
+                    case 400:
+                        switch (response.data.error_code) {  
+                            case "password_format_invalid":
+                                setPasswordValidateError("Password format is invalid.");
+                                break;
+                            case "country_code_invalid":
+                                onError(() => {});
+                                break;
+                            case "email_invalid":
+                                setEmailValidateError("Provided email address is invalid.");
+                                break;
+                            case "email_doesnt_exist":
+                                setEmailValidateError("Provided email address doesn't exist.");
+                                break;
+                        }
+                        break;
+                    case 500:
+                        onError(() => {});
+                        break;
+                }
+
+                setRegisterInProgress(false);
+            })
+            .catch(error => {
+                onError(() => {});
+                setRegisterInProgress(false);
+            });
     }
 
     return <form className="register-form" action={onRegister}>
@@ -120,11 +172,16 @@ export default function RegisterContent({onError}: RegisterContentProps) {
             label={<span>
                 By signing up, You agree to the <Link text="Terms of Service" url="/tos"/> and <Link text="Privacy Policy" url="/privacy-policy" />
             </span>}
-            isChecked={tosAgreementChecked}
-            onChecked={setTosAgreementChecked} />
+            required/>
         <Button
             isSubmitButton
-            label="Create account"/>
+            label="Create account"
+            className="register-button"
+            style={{
+                backgroundColor: registerInProgress
+                    ? "var(--start-page-select-option-disabled-color)"
+                    : "var(--start-page-accent-color)",
+            }}/>
         <div className="already-member-container">
             <span className="font-rest already-member-label">Already a member?</span>
             <Link

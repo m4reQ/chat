@@ -23,6 +23,15 @@ button:hover {
     cursor: pointer;
 }
 
+.start-page-transition.start-page-transition-leave {
+    opacity: 1;
+}
+
+.start-page-transition.start-page-transition-leave-active {
+    opacity: 0.01;
+    transition: opacity 500ms ease-in;
+}
+
 .font-rest {
     font-family: "Kumbh Sans", sans-serif;
     font-optical-sizing: auto;

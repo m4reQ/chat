@@ -1,7 +1,6 @@
 fastapi[standard]
 sqlmodel
 email-validator
-pycountry
 bcrypt
 dependency-injector
 pyjwt
@@ -9,3 +8,4 @@ itsdangerous
 mysqlclient
 minio
 Pillow
+ipinfo
