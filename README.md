@@ -51,10 +51,3 @@ API docs are available out-of-the-box when using development mode. After startin
 ## Documentation
 API docs are available out-of-the-box when using development mode. After starting the application simply go to `http://localhost:8000/docs` or `http://localhost:8000/redoc`.
 > **_NOTE:_** You might need to change address and base port to match ones defined for the API service, when building docker image.
-
-## Known issues
-- Currently built frontend container doesn't work correctly and fails to load CSS stylesheets. This is probably due to invalid nginx configuration and should be fixed soon. For now we recommend running frontend app locally using `npm start`.
->>> **_NOTE:_** When running application locally, environment variables must be provided manually.
->>> To correctly run the app set them before like so:  
-- bash: `set API_KEY=<your api key> && set API_BASE_URL=<docker API container url> && npm start`  
-- ps: `$env:API_KEY=<your api key>; $env:API_BASE_URL=<docker API container url>; npm start`  
