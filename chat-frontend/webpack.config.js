@@ -39,7 +39,7 @@ if (isProduction) {
 module.exports = {
     entry: path.resolve(__dirname, "src/index.tsx"),
     plugins: plugins,
-    devtool: "inline-source-map",
+    devtool: isProduction ? "inline-source-map" : undefined,
     output: {
         path: path.resolve(__dirname, "dist"),
         filename: "bundle.[contenthash].js",
