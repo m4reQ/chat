@@ -1,4 +1,3 @@
-import smtplib
 import logging
 import ipinfo
 import sqlalchemy.exc
@@ -8,11 +7,9 @@ import re
 import jwt
 import bcrypt
 import uuid
-import email_validator
 import fastapi
 import datetime
 import itsdangerous
-from email.mime.text import MIMEText
 from dependency_injector.providers import Factory
 
 from app.models.sql import SQLAPIKey, SQLUser
@@ -45,11 +42,7 @@ class AuthorizationService:
                  jwt_secret: bytes,
                  jwt_expire_time: datetime.timedelta,
                  email_verification_key: bytes,
-                 email_verification_salt: bytes,
-                 email_verification_token_salt_rounds: int,
-                 email_confirm_code_max_age: int,
-                 smtp_user: str,
-                 smtp_client_factory: Factory[smtplib.SMTP]) -> None:
+                 email_confirm_code_max_age: int) -> None:
         self._ipinfo_handler = ipinfo_handler
         self._db_session_factory = db_session_factory
         self._min_password_length = min_password_length
@@ -57,14 +50,8 @@ class AuthorizationService:
         self._password_salt_rounds = password_salt_rounds
         self._jwt_secret = jwt_secret
         self._jwt_expire_time = jwt_expire_time
-        self._email_verification_key = email_verification_key
         self._email_confirm_code_max_age = email_confirm_code_max_age
-        self._url_token_generator = itsdangerous.URLSafeTimedSerializer(
-            email_verification_key,
-            email_verification_salt)
-        self._smtp_client_factory = smtp_client_factory
-        self._smtp_user = smtp_user
-        self._email_verification_token_salt_rounds = email_verification_token_salt_rounds
+        self._verification_code_generator = itsdangerous.URLSafeTimedSerializer(email_verification_key)
 
     def get_min_password_length(self) -> int:
         return self._min_password_length
@@ -107,6 +94,23 @@ class AuthorizationService:
 
     # TODO JWT refreshing  
     # def refresh_jwt(self) -> None: ...
+
+    def generate_email_verification_code(self, user_id: int) -> str:
+        return self._verification_code_generator.dumps(user_id)
+    
+    def unregister_user(self, user_id: int) -> None:
+        with self._db_session_factory() as session:
+            query = sqlmodel.select(SQLUser).where(SQLUser.id == user_id)
+            user = session.exec(query).one_or_none()
+            if user is None:
+                raise fastapi.HTTPException(
+                    status_code=fastapi.status.HTTP_404_NOT_FOUND,
+                    detail={
+                        'error': 'User with given ID not found.',
+                        'user_id': user_id})
+
+            session.exec(sqlmodel.delete(SQLUser).where(SQLUser.id == user_id))
+            session.commit()
 
     def decode_jwt(self, token: str) -> int:
         try:
@@ -220,7 +224,7 @@ class AuthorizationService:
 
     def confirm_user_email(self, confirmation_code: str) -> None:
         try:
-            user_id: int = self._url_token_generator.loads(
+            user_id: int = self._verification_code_generator.loads(
                 confirmation_code,
                 max_age=self._email_confirm_code_max_age)
         except itsdangerous.SignatureExpired:
@@ -322,7 +326,6 @@ class AuthorizationService:
                     'password': password}))
 
         self._validate_password(password)
-        self._validate_email(email)
         
         country_code = self._get_country_code_from_ip(ip_address)
         password_hash = bcrypt.hashpw(
@@ -351,18 +354,6 @@ class AuthorizationService:
                         'email': email})
             
             session.refresh(user, attribute_names=('id',))
-
-            try:
-                self._send_verification_email(user.id, user.email)
-            except smtplib.SMTPException:
-                session.rollback()
-
-                raise fastapi.HTTPException(
-                    status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail={
-                        'error': 'Failed to send account verification email.',
-                        'error_code': 'verification_email_fail'})
-
             session.commit()
         
         return user.id
@@ -396,54 +387,5 @@ class AuthorizationService:
                     'error_code': 'password_format_invalid',
                     'validation_regex': self.get_password_validation_regex(),
                     'password': password})
-
-    def _send_password_reset_email(self, new_password: str, email: str) -> None:
-        self._send_email_to(
-            email,
-            'Password reset',
-            f'Your password has been reset.\n Please log in with new password: {new_password}.\nIt is recommended to change the password immediately after login.')
-    
-    def _send_verification_email(self, user_id: int, email: str) -> None:
-        verification_code = self._url_token_generator.dumps(user_id)
-        
-        # TODO Get url from request or fastapi base URL instead of using hardcoded value
-        verification_url = f'http://localhost:3000/auth/verify-email?code={verification_code}'
-        resend_email_url = f'http://localhost:8000/auth/send-verification-email/{user_id}'
-        
-        # TODO Create email from static template
-        self._send_email_to(
-            email,
-            'Account verification',
-            f'Your user account has been successfully created.\nTo activate it, please visit {verification_url}.\nGo to {resend_email_url} to send verification code again.')
-            
-    def _send_email_to(self, email: str, subject: str, text: str) -> None:
-        content = MIMEText(text)
-        content['Subject'] = subject
-        content['From'] = self._smtp_user
-        content['To'] = email
-
-        with self._smtp_client_factory() as smtp_client:
-            smtp_client.sendmail(
-                self._smtp_user,
-                (email,),
-                content.as_bytes())
-
-    def _validate_email(self, email: str) -> None:
-        try:
-            email_validator.validate_email(email)
-        except email_validator.EmailSyntaxError:
-            raise fastapi.HTTPException(
-                status_code=fastapi.status.HTTP_400_BAD_REQUEST,
-                detail={
-                    'error': 'Provided email address is not valid.',
-                    'error_code': 'email_invalid',
-                    'email': email})
-        except email_validator.EmailUndeliverableError:
-            raise fastapi.HTTPException(
-                status_code=fastapi.status.HTTP_400_BAD_REQUEST,
-                detail={
-                    'error': 'Provided email address does not exist.',
-                    'error_code': 'email_doesnt_exist',
-                    'email': email})
 
 _logger = logging.getLogger(__name__)

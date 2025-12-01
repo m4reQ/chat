@@ -1,0 +1,36 @@
+.navbar {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    padding: 1.5em 0.2em 1.5em 0.2em;
+    align-items: center;
+    width: 5%;
+}
+
+.navbar:after {
+    content: '';
+    height: 96%;
+    width: 1px;
+
+    position: absolute;
+    right: 0;
+    top: 2%;
+
+    background-color: #D7D7D7;
+}
+
+.navbar-selector {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 40%;
+    width: 100%;
+    gap: 20px;
+}
+
+.navbar-profile-picture {
+    border-radius: 100%;
+    width: 80%;
+    aspect-ratio: 1;
+}

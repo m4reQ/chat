@@ -6,7 +6,7 @@ from app.services import UserService, AuthorizationService
 from app.models.responses import APIUser
 from app.media_type import MediaType
 
-oauth2_scheme = fastapi.security.OAuth2PasswordBearer(tokenUrl='auth/login')
+oauth2_scheme = fastapi.security.oauth2.OAuth2PasswordBearer(tokenUrl='auth/login')
 
 router = fastapi.APIRouter(
     prefix='/user',

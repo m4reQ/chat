@@ -6,6 +6,7 @@ import { LoginContent } from "./pages/start-page/components/LoginContent.tsx";
 import RegisterContent from "./pages/start-page/components/RegisterContent.tsx";
 import IndexPage from "./pages/index-page/IndexPage.tsx";
 import VerifyEmailPage from "./pages/verify-email-page/VerifyEmailPage.tsx";
+import AppPage from "./pages/app-page/AppPage.tsx";
 
 export default function App() {
   const location = useLocation();
@@ -49,7 +50,7 @@ export default function App() {
         element={<VerifyEmailPage onError={onError}/>} />
       <Route
         path="/app"
-        element={<h1>App page</h1>} />
+        element={<AppPage />} />
       </Routes>
   </>;
 }

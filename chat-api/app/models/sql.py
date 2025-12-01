@@ -12,6 +12,26 @@ class ActivityStatus(enum.StrEnum):
     BRB = 'brb'
     DONT_DISTURB = 'dont_disturb'
 
+class ChatRoomType(enum.StrEnum):
+    PUBLIC = 'public'
+    PRIVATE = 'private'
+    INTERNAL = 'internal'
+
+class SQLChatRoom(sqlmodel.SQLModel, table=True):
+    __tablename__ = 'chat_rooms'
+
+    id: int | None = sqlmodel.Field(primary_key=True)
+    name: str | None = sqlmodel.Field(max_length=256, default=None)
+    type: ChatRoomType = sqlmodel.Field()
+    owner: int = sqlmodel.Field(foreign_key='users.id')
+
+class SQLChatRoomUser(sqlmodel.SQLModel, table=True):
+    __tablename__ = 'chat_room_users'
+
+    id: int | None = sqlmodel.Field(primary_key=True)
+    room_id: int = sqlmodel.Field(foreign_key='chat_rooms.id')
+    user_id: int = sqlmodel.Field(foreign_key='users.id')
+
 class SQLUser(sqlmodel.SQLModel, table=True):
     __tablename__ = 'users'
 

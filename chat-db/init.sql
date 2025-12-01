@@ -10,6 +10,22 @@ CREATE TABLE users(
     current_activity_status ENUM("ACTIVE", "OFFLINE", "BRB", "DONT_DISTURB") NOT NULL DEFAULT "OFFLINE",
     last_set_user_activity_status ENUM("ACTIVE", "BRB", "DONT_DISTURB") NOT NULL DEFAULT "ACTIVE");
 
+CREATE TABLE chat_rooms(
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(256),
+    type ENUM("PUBLIC", "PRIVATE", "INTERNAL") NOT NULL,
+    owner BIGINT UNSIGNED,
+
+    FOREIGN KEY (owner) REFERENCES users(id));
+
+CREATE TABLE chat_room_users(
+    id SERIAL PRIMARY KEY,
+    room_id BIGINT UNSIGNED NOT NULL,
+    user_id BIGINT UNSIGNED NOT NULL,
+
+    FOREIGN KEY (room_id) REFERENCES chat_rooms(id),
+    FOREIGN KEY (user_id) REFERENCES users(id));
+
 CREATE TABLE api_keys(
     id SERIAL PRIMARY KEY,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,

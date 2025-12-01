@@ -18,15 +18,6 @@ _SUPPORTED_MEDIA_TYPES = [
     MediaType.IMAGE_TIFF,
     MediaType.IMAGE_ICON]
 
-# _MIME_TYPE_TO_PIL_FORMAT = {
-#     MediaType.IMAGE_JPEG: 'JPEG',
-#     MediaType.IMAGE_PNG: 'PNG',
-#     MediaType.IMAGE_WEBP: 'WEBP',
-#     MediaType.IMAGE_GIF: 'GIF',
-#     MediaType.IMAGE_BMP: 'BMP',
-#     MediaType.IMAGE_TIFF: 'TIFF',
-#     MediaType.IMAGE_ICON: 'ICO'}
-
 class UserService:
     def __init__(self,
                  db_session_factory: Factory[sqlmodel.Session],

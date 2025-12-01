@@ -9,3 +9,4 @@ mysqlclient
 minio
 Pillow
 ipinfo
+aiosmtplib

@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosHeaders, Method, RawAxiosRequestHeaders, ResponseType } from "axios";
 
 export async function getPasswordValidationRules(): Promise<[RegExp, number]> {
     const response = await axios.request({
@@ -14,4 +14,27 @@ export async function getPasswordValidationRules(): Promise<[RegExp, number]> {
     }
 
     throw new Error("Failed to get password validation rules.");
+}
+
+interface RequestConfig {
+    method: Method,
+    url: string,
+    headers?: RawAxiosRequestHeaders | AxiosHeaders,
+    responseType?: ResponseType,
+};
+
+export function makeAPIRequest({
+    method,
+    url,
+    headers = undefined,
+    responseType = "json"}: RequestConfig) {
+    return axios.request({
+        baseURL: process.env.API_BASE_URL,
+        validateStatus: _ => true,
+        method: method,
+        url: url,
+        responseType: responseType,
+        headers: {
+            "X-Api-Key": process.env.API_KEY,
+            ...headers}});
 }

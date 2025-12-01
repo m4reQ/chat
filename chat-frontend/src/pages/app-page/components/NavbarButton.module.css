@@ -1,0 +1,26 @@
+.selectorButton {
+    border-radius: 10px;
+    width: 100%;
+    text-align: center;
+    display: flex;
+    flex-direction: row;
+    position: relative;
+}
+
+.buttonImg {
+    padding: 5px;
+    border-radius: 10px;
+    width: 60%;
+    aspect-ratio: 1;
+}
+
+.buttonHighlightBar {
+    width: 3px;
+    height: 90%;
+    border-radius: 3px;
+    position: absolute;
+    right: 2.5px;
+    top: 5%;
+
+    background-color: #C57FFF;
+}
