@@ -10,6 +10,8 @@ services:
     volumes:
       - ./chat-frontend:/frontend
     restart: unless-stopped
+    networks:
+      - chat-internal
     depends_on:
       api:
         condition: service_healthy
@@ -24,7 +26,8 @@ services:
       - "8000:8000"
       - "5678:5678" # for python remote debugger
     volumes:
-      - ./chat-api:/api
+      - ./chat-api/data:/data:rw # data directory
+      - ./chat-api/app:/api/app:ro # for hot-reload
     networks:
       - chat-internal
     depends_on:
@@ -34,9 +37,6 @@ services:
       email:
         condition: service_healthy
         restart: true
-      fs:
-        condition: service_healthy
-        restart: true
     healthcheck:
       test: "curl --fail http://localhost:8000/health || exit 1"
       interval: 10s
@@ -44,9 +44,7 @@ services:
       retries: 5
       start_period: 30s
   db:
-    build:
-      context: ./chat-db/
-      dockerfile: ./Dockerfile
+    image: mysql:latest
     env_file:
       - "./chat-db/.env"
     volumes:
@@ -85,24 +83,6 @@ services:
     volumes:
       - "./chat-email/maddy.conf:/data/maddy.conf:ro"
       - "./chat-email/certificates:/data/tls:ro"
-  fs:
-    image: minio/minio:latest
-    env_file:
-      - "./chat-fs/.env"
-    command: server /data --console-address ":9001"
-    ports:
-      - "9000:9000" # API
-      - "9001:9001" # Web console
-    volumes:
-      - "./chat-fs/data:/data"
-    networks:
-      - chat-internal
-    healthcheck:
-      test: curl --fail http://localhost:9000/minio/health/ready || exit 1
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 10s
 networks:
   chat-internal:
     driver: bridge

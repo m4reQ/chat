@@ -4,6 +4,6 @@
 FROM node:25.1-alpine
 WORKDIR /frontend
 COPY ./package*.json /frontend
-RUN npm install
+RUN npm install --force
 COPY . /frontend
 CMD [ "npm", "start" ]

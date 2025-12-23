@@ -3,7 +3,7 @@ import fastapi.middleware.cors
 import inspect
 
 from app import routers, dependencies, middleware
-from app.lifespan import app_lifespan
+from app.lifespan import lifespan
 
 dependency_container = dependencies.Container()
 dependency_container.config.db.username.from_env('DB_USERNAME')
@@ -22,27 +22,23 @@ dependency_container.config.smtp.host.from_env('SMTP_HOST')
 dependency_container.config.smtp.port.from_env('SMTP_PORT')
 dependency_container.config.smtp.user.from_env('SMTP_USER')
 dependency_container.config.smtp.password.from_env('SMTP_PASSWORD')
-dependency_container.config.fs.endpoint.from_env('FS_ENDPOINT')
-dependency_container.config.fs.user.from_env('FS_USER')
-dependency_container.config.fs.password.from_env('FS_PASSWORD')
-dependency_container.config.fs.region.from_env('FS_REGION')
-dependency_container.config.fs.profile_images_bucket.from_value('profile-images')
-dependency_container.config.fs.attachments_bucket.from_value('attachments')
+dependency_container.config.fs.data_directory.from_env('FS_DATA_DIRECTORY')
 dependency_container.config.user.profile_picture_size.from_env('PROFILE_PICTURE_SIZE')
 dependency_container.wire(
     packages=['app.routers'],
-    modules=['app.lifespan', 'app.middleware'],
+    modules=['app.middleware', 'app.lifespan'],
     warn_unresolved=True)
 
-app = fastapi.FastAPI(lifespan=app_lifespan)
+app = fastapi.FastAPI(lifespan=lifespan)
 app.middleware('http')(middleware.validate_api_key_header)
 app.middleware('http')(middleware.add_process_time_header)
 app.add_middleware(
     fastapi.middleware.cors.CORSMiddleware,
     allow_credentials=True,
-    allow_origins=('http://localhost:3000', 'http://localhost:80'),
+    allow_origins=('*',),
     allow_methods=('*',),
-    allow_headers=('*',))
+    allow_headers=('*',),
+    expose_headers=('x-process-time', ))
 
 @app.exception_handler(fastapi.HTTPException)
 async def http_exception_handler(_: fastapi.Request, exc: fastapi.HTTPException):

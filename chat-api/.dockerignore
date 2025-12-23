@@ -4,3 +4,4 @@ Dockerfile-dev
 Dockerfile-prod
 .dockerignore
 **/__pycache__/
+data/

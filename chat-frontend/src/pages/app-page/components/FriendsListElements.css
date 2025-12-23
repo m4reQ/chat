@@ -1,0 +1,10 @@
+.friendsListElement {
+    display: flex;
+    flex-direction: row;
+}
+
+.profilePictureImg {
+    height: 80%;
+    aspect-ratio: 1;
+    border-radius: 100%;
+}

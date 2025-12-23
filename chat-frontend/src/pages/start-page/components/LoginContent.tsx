@@ -6,6 +6,7 @@ import Checkbox from "../../../components/Checkbox.tsx";
 import Link from "../../../components/Link.tsx";
 import Button from "../../../components/Button.tsx";
 import { useNavigate } from "react-router";
+import { LoginResult, postLoginRequest } from "../../../backend.ts";
 
 interface LoginContentProps {
     onError: (retryAction: () => any) => any;
@@ -17,51 +18,7 @@ export function LoginContent({onError}: LoginContentProps) {
     const [passwordValidateError, setPasswordValidateError] = useState<string | undefined>(undefined);
     const navigate = useNavigate();
 
-    function sendLoginRequest(username: string, password: string) {
-        const retryAction = () => sendLoginRequest(username, password);
-
-        axios.request({
-            url: "/auth/login",
-            method: "post",
-            baseURL: process.env.API_BASE_URL,
-            data: {
-                grant_type: "password",
-                username: username,
-                password: password },
-            headers: {
-                "X-Api-Key": process.env.API_KEY,
-                "Content-Type": "application/x-www-form-urlencoded" },
-            validateStatus: _ => true })
-            .then(response => {
-                setIsLoginInProgress(false);
-
-                switch (response.status) {
-                    case 200:
-                        localStorage.setItem("userJWT", response.data.access_token);
-                        navigate("/app");
-                        break;
-                    case 401:
-                        setPasswordValidateError("Invalid password for the given username!");
-                        break;
-                    case 400:
-                        if (response.data.error === "unauthorized_client") {
-                            setUsernameValidateError("Please verify your account by using link sent to Your email, before login.");
-                        } else {
-                            onError(retryAction);
-                        }
-
-                        break;
-                    default:
-                        onError(retryAction);
-                }
-            })
-            .catch(error => {
-                setIsLoginInProgress(false);
-                onError?.(retryAction);
-            });
-    }
-
-    function onLogin(formData: FormData) {
+    async function onLogin(formData: FormData) {
         setIsLoginInProgress(true);
 
         const username = formData.get("username") as string;
@@ -88,7 +45,33 @@ export function LoginContent({onError}: LoginContentProps) {
             return;
         }
 
-        sendLoginRequest(username, password);
+        var loginResult: LoginResult;
+        var accessToken: string | null;
+        try {
+            var [loginResult, accessToken] = await postLoginRequest(username, password);
+        } catch (error) {
+            console.log(error);
+            onError(() => {});
+            setIsLoginInProgress(false);
+            return;
+        }
+
+        switch (loginResult) {
+            case LoginResult.SUCCESS:
+                localStorage.setItem("userJWT", accessToken as string);
+                navigate("/app");
+                break;
+            case LoginResult.INVALID_CREDENTIALS:
+                setPasswordValidateError("Invalid password for the given username!");
+                break;
+            case LoginResult.UNAUTHORIZED_CLIENT:
+                setUsernameValidateError("Please verify your account by using link sent to Your email, before login.");
+                break;
+            case LoginResult.INTERNAL_ERROR:
+                onError(() => {});
+        }
+
+        setIsLoginInProgress(false);
     }
 
     useEffect(() => {

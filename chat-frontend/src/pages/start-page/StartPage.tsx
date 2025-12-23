@@ -14,7 +14,8 @@ interface StartPageProps {
 export default function StartPage({content}: StartPageProps) {
     const location = useLocation();
 
-    return <div className="start-page-container">
+    return <div className="start-page">
+        <div className="start-page-container">
             <img src="assets/icons/app_logo.svg" className="start-page-logo" />
             <PageHeader
                 headerText={content.headerText}
@@ -25,5 +26,6 @@ export default function StartPage({content}: StartPageProps) {
                     {content.mainElement}
                 </div>
             </div>
-        </div>;
+        </div>
+    </div>;
 }

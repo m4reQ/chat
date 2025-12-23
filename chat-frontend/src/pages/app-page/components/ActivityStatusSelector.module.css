@@ -1,0 +1,27 @@
+.container {
+    width: 60%;
+    position: relative;
+}
+
+.expandButton {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    justify-content: space-between;
+    align-content: center;
+    align-items: center;
+    padding: 5% 10%;
+    border-radius: 10px;
+}
+
+.statusSelectorListItem {
+    list-style-type: none;
+    padding: 0;
+    margin-top: 3px;
+}
+
+.expandIcon {
+    height: 1em;
+    transition: rotate linear 0.15s;
+}

@@ -3,7 +3,7 @@ import Checkbox from "../../../components/Checkbox.tsx";
 import TextField from "./TextField.tsx";
 import Link from "../../../components/Link.tsx";
 import Button from "../../../components/Button.tsx";
-import { getPasswordValidationRules } from "../../../backend.ts";
+import { getPasswordValidationRules, postRegisterRequest, RegisterResult } from "../../../backend.ts";
 import "./RegisterContent.css";
 import axios from "axios";
 
@@ -67,16 +67,8 @@ export default function RegisterContent({onError}: RegisterContentProps) {
         } else if (passwordRepeat && passwordsMatch) {
             setPasswordRepeatValidateError(undefined);
         }
-
-        let regex: RegExp | null = null;
-        let minPasswordLength: number | null = null;
-        try {
-            [regex, minPasswordLength] = await getPasswordValidationRules();
-        } catch (exc) {
-            // onError()
-            return;
-        }
         
+        const [regex, minPasswordLength] = await getPasswordValidationRules();
         if (!regex.test(password)) {
             setPasswordValidateError(`Password must be at least ${minPasswordLength} characters long and contain at least: one capital letter, one number and one special character.`);
             anyValueInvalid = true;
@@ -89,56 +81,41 @@ export default function RegisterContent({onError}: RegisterContentProps) {
             return;
         }
 
-        axios.request({
-            url: "/auth/register",
-            method: "post",
-            baseURL: process.env.API_BASE_URL,
-            data: {
-                username: username,
-                email: email,
-                password: password,
-                password_repeat: passwordRepeat },
-            headers: { "X-Api-Key": process.env.API_KEY },
-            validateStatus: _ => true})
-            .then(response => {
-                switch (response.status) {
-                    case 201:
-                        // nice
-                        break;
-                    case 415:
-                        setPasswordValidateError("Password must only include UTF-8 characters.");
-                        break;
-                    case 409:
-                        setEmailValidateError("User with provided email or username already exists.");
-                        setUsernameValidateError("User with provided email or username already exists.");
-                        break;
-                    case 400:
-                        switch (response.data.error_code) {  
-                            case "password_format_invalid":
-                                setPasswordValidateError("Password format is invalid.");
-                                break;
-                            case "country_code_invalid":
-                                onError(() => {});
-                                break;
-                            case "email_invalid":
-                                setEmailValidateError("Provided email address is invalid.");
-                                break;
-                            case "email_doesnt_exist":
-                                setEmailValidateError("Provided email address doesn't exist.");
-                                break;
-                        }
-                        break;
-                    case 500:
-                        onError(() => {});
-                        break;
-                }
-
-                setRegisterInProgress(false);
-            })
-            .catch(error => {
+        var registerResult: RegisterResult;
+        try {
+            registerResult = await postRegisterRequest(username, email, password);
+        } catch (error) {
+            console.error(error);
+            onError(() => {});
+            setRegisterInProgress(false);
+            return;
+        }
+        
+        switch (registerResult) {
+            case RegisterResult.INVALID_ENCODING:
+                setPasswordValidateError("Password must only include UTF-8 characters.");
+                break;
+            case RegisterResult.ALREADY_EXISTS:
+                setEmailValidateError("User with provided email or username already exists.");
+                setUsernameValidateError("User with provided email or username already exists.");
+                break;
+            case RegisterResult.PASSWORD_INVALID:
+                setPasswordValidateError("Password format is invalid.");
+                break;
+            case RegisterResult.EMAIL_INVALID:
+                setEmailValidateError("Provided email address is invalid.");
+                break;
+            case RegisterResult.EMAIL_DOESNT_EXIST:
+                setEmailValidateError("Provided email address doesn't exist.");
+                break;
+            case RegisterResult.INTERNAL_ERROR:
                 onError(() => {});
-                setRegisterInProgress(false);
-            });
+                break;
+            default:
+                // TODO Show popup indicating that user was registered successfully.
+        }
+
+        setRegisterInProgress(false);
     }
 
     return <form className="register-form" action={onRegister}>

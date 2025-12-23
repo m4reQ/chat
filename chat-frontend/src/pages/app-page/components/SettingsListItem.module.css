@@ -1,0 +1,29 @@
+.container {
+    font-size: 0.8em;
+    display: flex;
+    flex-direction: row;
+    background-color: transparent;
+    align-items: center;
+    padding: 0.5em 1em;
+    border-radius: 1em;
+    gap: 1.5em;
+}
+
+.container:hover {
+    background-color: #EEEEEE;
+}
+
+.icon {
+    aspect-ratio: 1;
+    height: 2em;
+}
+
+.expandIcon {
+    aspect-ratio: 1;
+    height: 1em;
+    margin-left: auto;
+}
+
+.title {
+    white-space: nowrap;
+}

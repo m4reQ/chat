@@ -1,0 +1,128 @@
+import { useState } from "react";
+import { NavigateFunction, useNavigate } from "react-router";
+import { useQuery } from "react-query";
+import ActivityIndicator, { ColorString } from "./ActivityIndicator.tsx";
+import ActivityStatusSelector, { ActivityStatusSelectorItem } from "./ActivityStatusSelector.tsx";
+import AppWindow from "./AppWindow.tsx";
+import ChatRoomListItem from "./ChatRoomListItem.tsx";
+import { makeAPIRequestWithJWT, setupInterceptors } from "../../../backend.ts";
+import { UserChatRoom } from "../../../models/ChatRoom.ts";
+import { UserActivityStatus, UserWithProfilePicture } from "../../../models/User.ts";
+import * as CSS from "./ChatsSidebar.module.css";
+
+interface ChatsSideBarProps {
+    user: UserWithProfilePicture;
+}
+
+interface ActivityStatusItem extends ActivityStatusSelectorItem {
+    status: UserActivityStatus;
+    indicatorColor: ColorString;
+};
+
+const activityStatusItems: ActivityStatusItem[] = [
+    {
+        status: UserActivityStatus.Active,
+        statusText: "Active",
+        indicatorColor: "#45C138",
+        selectorBackgroundColor: "#BEECB9",
+        selectorStrokeColor: "#539C4B"
+    },
+    {
+        status: UserActivityStatus.BRB,
+        statusText: "Be right back",
+        indicatorColor: "#FFC300",
+        selectorBackgroundColor: "#FFEAA6",
+        selectorStrokeColor: "#AF8600",
+    },
+    {
+        status: UserActivityStatus.DontDisturb,
+        statusText: "Don't disturb",
+        indicatorColor: "#FF3700",
+        selectorBackgroundColor: "#FFA48B",
+        selectorStrokeColor: "#862A08",
+    },
+    {
+        status: UserActivityStatus.Offline,
+        statusText: "Offline",
+        indicatorColor: "#676767",
+        selectorBackgroundColor: "#DEDEDE",
+        selectorStrokeColor: "#676767",
+    },
+];
+
+async function getUserChatRooms(navigate: NavigateFunction) {
+    setupInterceptors(navigate);
+    
+    const jwt = localStorage.getItem("userJWT");
+    if (!jwt) {
+        localStorage.removeItem("userJWT");
+        navigate("/login");
+        return;
+    }
+
+    const response = await makeAPIRequestWithJWT({
+        jwt: jwt,
+        method: "GET",
+        url: "/user/rooms",
+    });
+    return response.data as UserChatRoom[];
+}
+
+export default function ChatsSideBar({ user }: ChatsSideBarProps) {
+    const navigate = useNavigate();
+    const chatRoomsQuery = useQuery(
+        "chat-rooms",
+        () => getUserChatRooms(navigate));
+    const [currentChatRoomIdx, setCurrentChatRoomIdx] = useState(0);
+
+    function findUserActivityStatusIdx() {
+        return activityStatusItems.findIndex(x => x.status === user.activity_status);
+    }
+
+    const [activityStatusIndex, setActivityStatusIndex] = useState(findUserActivityStatusIdx());
+
+    return <AppWindow width="20%">
+        <span className={CSS.header}>Chats</span>
+        <div className={CSS.userInfoContainer}>
+            <div className={CSS.profilePictureContainer}>
+                <img
+                    className={CSS.profilePicture}
+                    src={user.profilePictureURL} />
+                <ActivityIndicator color={activityStatusItems[activityStatusIndex].indicatorColor} />
+            </div>
+            <span className={CSS.usernameLabel}>{user.username}</span>
+            <ActivityStatusSelector
+                items={activityStatusItems}
+                initialIndex={activityStatusIndex}
+                onSelect={(idx) => {
+                    setActivityStatusIndex(idx);
+                }} />
+            <div className={CSS.chatRoomsListBar}>
+                <span>Last chats</span>
+                <div
+                    style={{
+                        display: "flex",
+                        flexDirection: "row",
+                        gap: "3px",
+                    }}>
+                    <button>
+                        <img src="assets/icons/create_room.svg" />
+                    </button>
+                    <button>
+                        <img src="assets/icons/room_list_options.svg" />
+                    </button>
+                </div>
+            </div>
+            <div className={CSS.chatRoomsList}>
+                {chatRoomsQuery.isLoading
+                    ? <span>Loading chat rooms...</span>
+                    : chatRoomsQuery.data?.map(
+                        (x, idx) => <ChatRoomListItem
+                            room={x}
+                            isSelected={idx == currentChatRoomIdx}
+                            onSelect={() => setCurrentChatRoomIdx(idx)} />
+                        )}
+            </div>
+        </div>
+    </AppWindow>;
+}

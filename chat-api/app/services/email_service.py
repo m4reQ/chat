@@ -1,9 +1,28 @@
 import aiosmtplib
-import email_validator
 import asyncio
+import pathlib
+import email_validator
+import fastapi
 from email.mime.text import MIMEText
 
-import itsdangerous
+from app import error
+from app.models.errors import ErrorEmailNotDelivered, ErrorEmailInvalid, ErrorEmailNotFound
+
+class _MessageTemplate:
+    def __init__(self, filepath: pathlib.Path, sender: str, title: str) -> None:
+        self._template_string = filepath.read_text()
+        self._sender = sender
+        self._title = title
+    
+    def build(self,
+              recipient: str,
+              **format_args) -> MIMEText:
+        message = MIMEText(self._template_string.format(**format_args), 'html')
+        message.add_header('Subject', self._title)
+        message.add_header('From', self._sender)
+        message.add_header('To', recipient)
+        
+        return message
 
 class EmailService:
     def __init__(self,
@@ -11,69 +30,68 @@ class EmailService:
                  smtp_port: int,
                  smtp_user: str,
                  smtp_password: str,
-                 verification_template_path: str,
-                 password_reset_template_path: str) -> None:
+                 data_directory: pathlib.Path) -> None:
         self._smtp_user = smtp_user
+        self._smtp_host = smtp_host
+        self._smtp_port = smtp_port
+        self._smtp_user = smtp_user
+        self._smtp_password = smtp_password
         self._smtp_client = aiosmtplib.SMTP(
             hostname=smtp_host,
             port=smtp_port,
             username=smtp_user,
             password=smtp_password,
-            use_tls=True)
-        self._verification_template = self._read_template(verification_template_path)
-        self._password_reset_template = self._read_template(password_reset_template_path)
+            use_tls=True,
+            validate_certs=False)
+        self._verification_template = _MessageTemplate(
+            data_directory / 'email_templates' / 'account_verification.html',
+            smtp_user,
+            'Chatter - Account verification')
+        self._password_reset_template = _MessageTemplate(
+            data_directory / 'email_templates' / 'password_reset.html',
+            smtp_user,
+            'Chatter - Password reset')
     
     async def validate_email(self, email_address: str) -> None:
-        '''
-        :raises: email_validator.EmailSyntaxError: When email address format is invalid.
-        :raises: email_validator.EmailUndeliverableError: When email address does not exist.
-        '''
-        await asyncio.to_thread(email_validator.validate_email, email_address)
+        try:
+            await asyncio.to_thread(email_validator.validate_email, email_address)
+        except email_validator.EmailSyntaxError:
+            error.raise_error_obj(
+                ErrorEmailInvalid(email=email_address),
+                fastapi.status.HTTP_400_BAD_REQUEST)
+        except email_validator.EmailUndeliverableError:
+            error.raise_error_obj(
+                ErrorEmailNotFound(email=email_address),
+                fastapi.status.HTTP_400_BAD_REQUEST)
     
-    async def send_password_reset_email(self,
-                                        new_password: str,
-                                        email_address: str) -> None:
-        '''
-        :raises aiosmtplib.SMTPException: When account verification email couldn't be delivered.
-        '''
-        
-        content = self._password_reset_template.format(new_password=new_password)
-        message = self._build_html_message(
-            content,
-            'Password reset',
-            email_address)
-
-        await self._send_email(message, email_address)
+    async def send_password_reset_email(self, new_password: str, email_address: str) -> None:
+        try:
+            await self._send_email(
+                self._password_reset_template.build(
+                    email_address,
+                    new_password=new_password),
+                email_address)
+        except aiosmtplib.SMTPException:
+            ErrorEmailNotDelivered(email=email_address) \
+                .raise_()
 
     async def send_account_verification_email(self,
                                               verification_url: str,
                                               resend_url: str,
                                               email_address: str) -> None:
-        content = self._verification_template.format(
-            verification_url=verification_url,
-            resend_url=resend_url)
-        message = self._build_html_message(
-            content,
-            'Account verification',
-            email_address)
-        
-        await self._send_email(message, email_address)
+        try:
+            await self._send_email(
+                self._verification_template.build(
+                    email_address,
+                    verification_url=verification_url,
+                    resend_url=resend_url),
+                email_address)
+        except aiosmtplib.SMTPException:
+            error.raise_error_obj(ErrorEmailNotDelivered(email=email_address))
             
-    async def _send_email(self, message: MIMEText, email_address) -> None:
+    async def _send_email(self, message: MIMEText, email_address: str) -> None:
         async with self._smtp_client:
             await self._smtp_client.sendmail(
                 self._smtp_user,
                 (email_address,),
                 message.as_bytes())
-
-    def _build_html_message(self, content: str, subject: str, to: str) -> MIMEText:
-        message = MIMEText(content, 'html')
-        message.add_header('Subject', subject)
-        message.add_header('From', self._smtp_user)
-        message.add_header('To', to)
-        
-        return message
-        
-    def _read_template(self, path: str) -> str:
-        with open(path, 'r') as f:
-            return f.read()

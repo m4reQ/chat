@@ -1,0 +1,76 @@
+.mainContainer {
+    background-color: #FFFFFF;
+    border-radius: 25px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    width: 20%;
+    align-items: center;
+}
+
+.profilePicture {
+    width: 10em;
+    aspect-ratio: 1;
+    border-radius: 100%;
+}
+
+.header {
+    font-weight: normal;
+    font-size: 1.2em;
+    align-self: flex-start;
+    padding-bottom: 1em;
+    border-bottom: 1px solid #D7D7D7;
+    width: 100%;
+}
+
+.usernameLabel {
+    font-size: 1.5em;
+}
+
+.chatRoomsList {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    width: 100%;
+    flex-grow: 1;
+    overflow-y: scroll;
+    max-height: auto;
+}
+
+.chatRoomsListBar {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    color: #747474;
+    font-size: 0.9em;
+    justify-content: space-between;
+}
+
+.userInfoContainer {
+    padding-top: 0.5em;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+    align-items: center;
+    width: 100%;
+    flex-grow: 1;
+}
+
+.settingsButton {
+    position: absolute;
+    right: 0;
+    width: 1.5em;
+    aspect-ratio: 1;
+}
+
+.settingsIcon {
+    width: 100%;
+    aspect-ratio: 1;
+}
+
+.profilePictureContainer {
+    position: relative;
+    text-align: center;
+    width: 100%;
+}

@@ -7,6 +7,7 @@ import RegisterContent from "./pages/start-page/components/RegisterContent.tsx";
 import IndexPage from "./pages/index-page/IndexPage.tsx";
 import VerifyEmailPage from "./pages/verify-email-page/VerifyEmailPage.tsx";
 import AppPage from "./pages/app-page/AppPage.tsx";
+import ConfirmEmailPage from "./pages/confirm-email-page/ConfirmEmailPage.tsx";
 
 export default function App() {
   const location = useLocation();
@@ -29,6 +30,9 @@ export default function App() {
       <Route
         index
         element={<IndexPage />} />
+      <Route
+        path="/confirm-email"
+        element={<ConfirmEmailPage />}/>
       <Route
         path="/login"
         element={

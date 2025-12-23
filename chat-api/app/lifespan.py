@@ -1,19 +1,17 @@
-import minio
 import contextlib
-from dependency_injector.wiring import Provide, inject
+import fastapi
+from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession, AsyncEngine
+from dependency_injector.wiring import inject, Provide
+
+from app.models.sql import Base
 
 @contextlib.asynccontextmanager
 @inject
-async def app_lifespan(_,
-                       fs_client: minio.Minio = Provide['fs_client'],
-                       fs_prof_images_bucket_name: str = Provide['config.fs.profile_images_bucket'],
-                       fs_attachments_bucket_name: str = Provide['config.fs.attachments_bucket']):
+async def lifespan(app: fastapi.FastAPI, db_engine: AsyncEngine = Provide['db_engine']):
     # startup
-    # create minio buckets if needed
-    for bucket in (fs_prof_images_bucket_name, fs_attachments_bucket_name):
-        if not fs_client.bucket_exists(bucket):
-            fs_client.make_bucket(bucket)
-
+    async with db_engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+    
     yield
 
-    # cleanup
+    #cleanup

@@ -1,6 +1,5 @@
 const path = require("path");
 const webpack = require("webpack");
-const HtmlWebpackPlugin = require("html-webpack-plugin");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
 const CompressionWebpackPlugin = require("compression-webpack-plugin");
 const WebpackObfuscator = require("webpack-obfuscator");
@@ -9,15 +8,11 @@ const isProduction = process.env.NODE_ENV === "production";
 
 var plugins = [
     new CompressionWebpackPlugin(),
-    new HtmlWebpackPlugin({
-        template: path.resolve(__dirname, "public", "index.html"),
-    }),
     new CopyWebpackPlugin({
         patterns: [
             {
                 from: path.resolve(__dirname, "public"),
                 to: path.resolve(__dirname, "dist"),
-                filter: resourcePath => !resourcePath.endsWith("index.html"),
             },
         ],
     }),
@@ -42,7 +37,7 @@ module.exports = {
     devtool: isProduction ? "inline-source-map" : undefined,
     output: {
         path: path.resolve(__dirname, "dist"),
-        filename: "bundle.[contenthash].js",
+        filename: "index.js",
     },
     module: {
         rules: [

@@ -1,12 +1,13 @@
 fastapi[standard]
-sqlmodel
+sqlalchemy[asyncio]
+asyncmy
+cryptography
 email-validator
 bcrypt
 dependency-injector
 pyjwt
 itsdangerous
 mysqlclient
-minio
 Pillow
 ipinfo
 aiosmtplib

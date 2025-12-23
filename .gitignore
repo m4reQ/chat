@@ -2,6 +2,8 @@ chat-frontend/node_modules/
 chat-frontend/coverage/
 chat-frontend/build/
 chat-api/**/__pycache__/
+chat-api/data/profile_pictures/
+chat-api/data/attachments/
 **/.vscode/
 **/.venv/
 **/.env

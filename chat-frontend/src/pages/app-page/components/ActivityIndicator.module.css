@@ -1,0 +1,10 @@
+.activityIndicator {
+    content: "";
+    position: absolute;
+    border: 3px solid white;
+    width: 8%;
+    aspect-ratio: 1;
+    border-radius: 100%;
+    bottom: 0;
+    left: 62%;
+}

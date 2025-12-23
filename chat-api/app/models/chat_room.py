@@ -1,0 +1,65 @@
+import datetime
+import pydantic
+import sqlalchemy
+import enum
+from sqlalchemy import sql, orm
+from app.models.sql import Base
+from app.models.user import APIUserForeign
+
+_CHAT_ROOM_NAME_MAX_LENGTH = 256
+_CHAT_ROOM_DESCRIPTION_MAX_LENGTH = 2048
+
+class RoomType(enum.StrEnum):
+    PUBLIC = 'PUBLIC'
+    PRIVATE = 'PRIVATE'
+    INVITE_ONLY = 'INVITE_ONLY'
+    INTERNAL = 'INTERNAL'
+
+class SQLChatRoom(Base):
+    __tablename__ = 'chat_rooms'
+
+    id: orm.Mapped[int] = orm.mapped_column(
+        sqlalchemy.BigInteger,
+        primary_key=True)
+    name: orm.Mapped[str] = orm.mapped_column(
+        sqlalchemy.String(length=_CHAT_ROOM_NAME_MAX_LENGTH),
+        unique=True,
+        nullable=False)
+    description: orm.Mapped[str] = orm.mapped_column(
+        sqlalchemy.Text(length=_CHAT_ROOM_DESCRIPTION_MAX_LENGTH),
+        nullable=False,
+        server_default='')
+    type: orm.Mapped[RoomType] = orm.mapped_column(
+        sqlalchemy.Enum(
+            RoomType,
+            name='room_type_enum',
+            native_enum=True),
+        nullable=False)
+    created_at: orm.Mapped[datetime.datetime] = orm.mapped_column(
+        sqlalchemy.DateTime(),
+        nullable=False,
+        server_default=sql.func.now())
+    owner_id: orm.Mapped[int] = orm.mapped_column(
+        sqlalchemy.BigInteger,
+        sqlalchemy.ForeignKey('users.id', ondelete='CASCADE'),
+        nullable=True)
+    
+class APIUserChatRoom(pydantic.BaseModel):
+    model_config = {'from_attributes': True}
+
+    joined_at: datetime.datetime
+    id: int
+    name: str
+    is_owner: bool
+    type: RoomType
+
+class APIChatRoom(pydantic.BaseModel):
+    model_config = {'from_attributes': True}
+
+    id: int
+    name: str
+    description: str | None
+    type: RoomType
+    created_at: datetime.datetime
+    owner: APIUserForeign | None
+    users: list[APIUserForeign]
