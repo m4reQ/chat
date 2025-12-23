@@ -6,6 +6,7 @@ from dependency_injector import containers, providers
 
 from app.services import AuthorizationService, DatetimeService, UserService, EmailService, LocationService
 from app.services.room_service import RoomService
+from app.services.message_service import MessageService
 
 class Container(containers.DeclarativeContainer):
     wiring_config = containers.WiringConfiguration(packages=['app.routers'])
@@ -51,3 +52,10 @@ class Container(containers.DeclarativeContainer):
     room_service = providers.Singleton(
         RoomService,
         db_sessionmaker)
+    message_service = providers.Singleton(
+        MessageService,
+        db_sessionmaker,
+        db_writer_tasks=1,
+        message_queue_size=32,
+        message_upload_batch_size=8,
+        message_upload_batch_timeout=3.0)
