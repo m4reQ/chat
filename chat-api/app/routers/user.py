@@ -184,11 +184,3 @@ async def get_user_profile_picture(user_id: int,
         status_code=status_code,
         media_type=MediaType.IMAGE_JPEG)
 
-@router.get('/search/{search_str}')
-@inject
-async def get_search_users(search_str: str,
-                           limit: int = 20,
-                           offset: int = 0,
-                           user_id: int = fastapi.Depends(get_user_id_from_jwt),
-                           user_service: UserService = fastapi.Depends(Provide['user_service'])):
-    return await user_service.search_users_by_username(user_id, search_str, limit, offset)
