@@ -1,10 +1,15 @@
 import datetime
+import typing
 import pydantic
 import sqlalchemy
 import enum
 from sqlalchemy import sql, orm
+
 from app.models.sql import Base
-from app.models.user import APIUserForeign
+from app.models.message import RoomMessage
+from app.models.user import APIUserForeign, UserActivityStatus, SQLUser
+from app.models.last_room_message import SQLLastRoomMessage
+from app.models.chat_room_user import SQLChatRoomUser
 
 _CHAT_ROOM_NAME_MAX_LENGTH = 256
 _CHAT_ROOM_DESCRIPTION_MAX_LENGTH = 2048
@@ -44,14 +49,32 @@ class SQLChatRoom(Base):
         sqlalchemy.ForeignKey('users.id', ondelete='CASCADE'),
         nullable=True)
     
+    users: orm.Mapped[list['SQLChatRoomUser']] = orm.relationship(
+        'SQLChatRoomUser',
+        back_populates='room',
+        lazy='selectin')
+    last_message: orm.Mapped['SQLLastRoomMessage'] = orm.relationship(
+        'SQLLastRoomMessage',
+        primaryjoin=orm.foreign(SQLLastRoomMessage.room_id) == id,
+        viewonly=True,
+        uselist=False)
+    
 class APIUserChatRoom(pydantic.BaseModel):
     model_config = {'from_attributes': True}
 
-    joined_at: datetime.datetime
     id: int
-    name: str
-    is_owner: bool
     type: RoomType
+    name: str
+    last_message: RoomMessage | None
+
+class APIChatRoomUser(pydantic.BaseModel):
+    model_config = {'from_attributes': True}
+
+    user_id: int
+    username: str
+    activity_status: UserActivityStatus
+    last_active: datetime.datetime
+    is_owner: bool
 
 class APIChatRoom(pydantic.BaseModel):
     model_config = {'from_attributes': True}
@@ -61,5 +84,4 @@ class APIChatRoom(pydantic.BaseModel):
     description: str | None
     type: RoomType
     created_at: datetime.datetime
-    owner: APIUserForeign | None
-    users: list[APIUserForeign]
+    users: list[APIChatRoomUser]

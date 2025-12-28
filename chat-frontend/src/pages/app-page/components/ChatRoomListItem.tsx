@@ -1,6 +1,8 @@
 import { useQuery } from "react-query";
 import { UserChatRoom } from "../../../models/ChatRoom.ts";
 import { makeAPIRequest } from "../../../backend.ts";
+import { Message, MessageType } from "../../../models/Message.ts";
+import dateFormat from "dateformat";
 import * as CSS from "./ChatRoomListItem.module.css";
 
 interface ChatRoomListItemProps {
@@ -18,6 +20,21 @@ async function getChatRoomImageURL(roomID: number) {
     return response.status == 200
         ? URL.createObjectURL(response.data)
         : undefined;
+}
+
+function formatLastMessage(message?: Message) {
+    if (!message) {
+        return "";
+    }
+
+    switch (message.type) {
+        case MessageType.Text:
+            return `${message.sender_username}: ${message.content}`;
+        case MessageType.Image:
+            return `${message.sender_username} sent an image.`;
+        case MessageType.File:
+            return `${message.sender_username} sent a file.`;
+    }
 }
 
 export default function ChatRoomListItem({ room, isSelected, onSelect }: ChatRoomListItemProps) {
@@ -40,9 +57,17 @@ export default function ChatRoomListItem({ room, isSelected, onSelect }: ChatRoo
                 ? imageQuery.data
                 : "/assets/icons/profile_picture_stub.svg"} />
         <div className={CSS.inner}>
-            <span className={CSS.text}>{room.name}</span>
-            <span className={`${CSS.text} ${CSS.auxText}`}>Last message</span>
+            <span className={CSS.text}>
+                {room.name}
+            </span>
+            <span className={`${CSS.text} ${CSS.auxText}`}>
+                {formatLastMessage(room.last_message)}
+            </span>
         </div>
-        <span className={CSS.auxText}>21:37</span>
+        <span className={CSS.auxText}>
+            {room.last_message
+                ? dateFormat(room.last_message.sent_at, "hh:MM")
+                : ""}
+        </span>
     </button>
 }

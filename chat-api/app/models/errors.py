@@ -177,6 +177,17 @@ class ErrorRoomNotOwner(Error):
     error_code: str = 'room_not_owner'
     error_message: str = 'Tried to modify chat room which is not owned by the user.'
     
+class ErrorRoomUserNotJoined(Error):
+    user_id: int
+    room_id: int
+    error_code: str = 'room_not_joined'
+    error_message: str = 'User does not belong to the specified room.'
+
+class ErrorRoomDeleteInternal(Error):
+    room_id: int
+    error_code: str = 'room_delete_internal'
+    error_message: str = 'Cannot manually delete internal chat room.'
+
 class ErrorDatabaseFail(Error):
     error_code: str = 'database_fail'
     error_message: str = 'Database operation failed.'

@@ -1,15 +1,105 @@
+import enum
 import sqlalchemy
 import sqlalchemy.exc
+import sqlalchemy.orm
 import fastapi
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
-from app.models.chat_room import APIChatRoom, RoomType, SQLChatRoom
+from app.models.chat_room import APIChatRoom, APIChatRoomUser, RoomType, SQLChatRoom
 from app.models.chat_room_user import SQLChatRoomUser
 from app.models.user import SQLUser, APIUserForeign
-from app.models.errors import ErrorRoomAlreadyExists, ErrorRoomAlreadyJoined, ErrorRoomInternalJoin, ErrorRoomNameTooLong, ErrorRoomNotFound, ErrorRoomNotOwner, ErrorRoomPrivateJoin, ErrorRoomInvalidTypeChange
+from app.models.errors import ErrorRoomAlreadyExists, ErrorRoomAlreadyJoined, ErrorRoomDeleteInternal, ErrorRoomInternalJoin, ErrorRoomNameTooLong, ErrorRoomNotFound, ErrorRoomNotOwner, ErrorRoomPrivateJoin, ErrorRoomInvalidTypeChange, ErrorRoomUserNotJoined
+from app.models.message import RoomMessage, SQLMessage
+
+class RoomUsersOrder(enum.StrEnum):
+    USERNAME = 'username'
+    OWNERSHIP = 'ownership'
+    JOIN_DATE = 'join_date'
 
 class RoomService:
-    def __init__(self, db_session_factory: async_sessionmaker[AsyncSession]) -> None:
-        self._db_session_factory = db_session_factory
+    def __init__(self, db_sessionmaker: async_sessionmaker[AsyncSession]) -> None:
+        self._db_sessionmaker = db_sessionmaker
+
+    async def delete_room(self, room_id: int, user_id: int):
+        async with self._db_sessionmaker() as session:
+            query = sqlalchemy.select(
+                SQLChatRoom.type,
+                sqlalchemy.func.if_(
+                    SQLChatRoom.owner_id == user_id,
+                    True,
+                    False))
+            room_type, is_owner = (await session.execute(query)).one()
+
+            if room_type == RoomType.INTERNAL:
+                ErrorRoomDeleteInternal(room_id) \
+                    .raise_(fastapi.status.HTTP_400_BAD_REQUEST)
+            
+            if not is_owner:
+                ErrorRoomNotOwner(room_id=room_id, user_id=user_id) \
+                    .raise_(fastapi.status.HTTP_401_UNAUTHORIZED)
+            
+            query = sqlalchemy.delete(SQLChatRoom) \
+                .where(SQLChatRoom.id == room_id)
+            await session.execute(query)
+
+            await session.commit()
+    
+    async def get_room_users(self, room_id: int, offset: int, limit: int):
+        async with self._db_sessionmaker() as session:
+            query = sqlalchemy.select(
+                SQLChatRoomUser.user_id,
+                SQLUser.username,
+                SQLUser.activity_status,
+                SQLUser.last_active,
+                sqlalchemy.func.if_(
+                    SQLChatRoomUser.user_id == SQLChatRoom.owner_id,
+                    True,
+                    False).label('is_owner')) \
+                .join(SQLChatRoom, SQLChatRoom.id == SQLChatRoomUser.room_id) \
+                .join(SQLUser, SQLUser.id == SQLChatRoomUser.user_id) \
+                .where(SQLChatRoomUser.room_id == room_id) \
+                .offset(offset) \
+                .limit(limit)
+            return [
+                APIChatRoomUser.model_validate(x)
+                for x
+                in await session.execute(query)]
+    
+    async def get_last_room_messages(self, room_id: int, offset: int, limit: int):
+        async with self._db_sessionmaker() as session:
+            query = sqlalchemy.select(
+                SQLMessage.id,
+                SQLMessage.type,
+                SQLMessage.content,
+                SQLMessage.sent_at,
+                SQLUser.id.label('sender_id'),
+                SQLUser.username.label('sender_username')) \
+                .join(SQLUser, SQLUser.id == SQLMessage.sender_id) \
+                .where(SQLMessage.room_id == room_id) \
+                .order_by(SQLMessage.sent_at.desc()) \
+                .offset(offset) \
+                .limit(limit)
+            return [
+                RoomMessage.model_validate(x)
+                for x
+                in (await session.execute(query)).all()]
+
+    async def check_user_belongs_to(self, user_id: int, room_id: int):
+        '''
+        Checks if user joined the specified room before.
+
+        :raises ErrorRoomUserNotJoined: If user doesn't belong to the specified room.
+        '''
+        
+        async with self._db_sessionmaker() as session:
+            query = sqlalchemy.select(
+                sqlalchemy.exists()
+                    .where(
+                        SQLChatRoomUser.room_id == room_id,
+                        SQLChatRoomUser.user_id == user_id))
+            row_exists = (await session.execute(query)).scalar_one()
+            if not row_exists:
+                ErrorRoomUserNotJoined(user_id=user_id, room_id=room_id) \
+                    .raise_(fastapi.status.HTTP_404_NOT_FOUND)
 
     async def update_room(self,
                           room_id: int,
@@ -17,7 +107,7 @@ class RoomService:
                           name: str | None = None,
                           description: str | None = None,
                           type: RoomType | None = None):
-        async with self._db_session_factory() as session:
+        async with self._db_sessionmaker() as session:
             query = sqlalchemy.select(SQLChatRoom) \
                 .where(SQLChatRoom.id == room_id)
             room = await session.scalar(query)
@@ -47,11 +137,19 @@ class RoomService:
                 ErrorRoomAlreadyExists(room_name=name) \
                     .raise_(fastapi.status.HTTP_409_CONFLICT)
 
-    async def get_room_by_id(self, room_id: int) -> APIChatRoom:
-        async with self._db_session_factory() as session:
-            query = sqlalchemy.select(SQLChatRoom) \
+    async def get_room_by_id(self, room_id: int, users_order: RoomUsersOrder) -> APIChatRoom:
+        # TODO Implement room users ordering
+        async with self._db_sessionmaker() as session:
+            query = (
+                sqlalchemy.select(SQLChatRoom)
                 .where(SQLChatRoom.id == room_id)
+                .options(
+                    sqlalchemy.orm.selectinload(SQLChatRoom.users)
+                        .selectinload(SQLChatRoomUser.user))
+            )
+
             room = await session.scalar(query)
+
             if room is None:
                 self._raise_room_not_found(room_id)
             
@@ -61,11 +159,10 @@ class RoomService:
                 description=room.description,
                 type=room.type,
                 created_at=room.created_at,
-                owner=await self._get_room_owner(room.owner_id, session),
-                users=await self._get_room_users(room.id, session))
+                users=room.users)
         
     async def create_room(self, owner_id: int, name: str, description: str | None, type: RoomType):
-        async with self._db_session_factory(expire_on_commit=False) as session:
+        async with self._db_sessionmaker(expire_on_commit=False) as session:
             room = SQLChatRoom(
                 name=name,
                 description=description,
@@ -101,7 +198,7 @@ class RoomService:
             return room.id
     
     async def join_room(self, room_id: int, user_id: int):
-        async with self._db_session_factory() as session:
+        async with self._db_sessionmaker() as session:
             query = sqlalchemy.select(SQLChatRoom.type) \
                 .where(SQLChatRoom.id == room_id)
             room_type = await session.scalar(query)

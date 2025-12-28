@@ -5,13 +5,14 @@ import pathlib
 import fastapi
 import typing as t
 import sqlalchemy
+import sqlalchemy.orm
 from PIL import Image
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 from app.models.errors import ErrorFriendRequestNotFound, ErrorProfilePictureInvalidType, ErrorProfilePictureSaveFailed, ErrorSelfFriendRequest, ErrorUserNotFoundID
 from app.models.user import APIUserForeign, SQLUser, APIUserSearchResult, UserActivityStatus
 from app.models.friend_request import APIFriendRequest, SQLFriendRequest
 from app.models.friend import APIFriend, SQLFriend, APIFriendActivity
-from app.models.chat_room import APIUserChatRoom, RoomType, SQLChatRoom
+from app.models.chat_room import APIUserChatRoom, SQLChatRoom
 from app.models.chat_room_user import SQLChatRoomUser
 
 class UserService:
@@ -74,33 +75,20 @@ class UserService:
     
     async def get_user_rooms(self, user_id: int) -> list[APIUserChatRoom]:
         async with self._db_session_factory() as session:
-            self._ensure_user_exists_session(user_id, session)
+            await self._ensure_user_exists_session(user_id, session)
 
-            query = sqlalchemy.select(
-                SQLChatRoomUser.joined_at,
-                SQLChatRoom.id,
-                SQLChatRoom.type,
-                sqlalchemy.func.if_(
-                    SQLChatRoom.type == RoomType.INTERNAL,
-                    sqlalchemy.select(SQLUser.username)
-                        .where(SQLUser.id == sqlalchemy.select(SQLChatRoomUser.user_id)
-                            .where(
-                                sqlalchemy.and_(
-                                    SQLChatRoomUser.room_id == SQLChatRoom.id,
-                                    SQLChatRoomUser.user_id != user_id))),
-                    SQLChatRoom.name).label('name'),
-                sqlalchemy.func.if_(
-                    SQLChatRoom.owner_id == user_id,
-                    True,
-                    False)
-                    .label('is_owner')) \
-                .where(SQLChatRoomUser.user_id == user_id) \
-                .join(SQLChatRoom, SQLChatRoom.id == SQLChatRoomUser.room_id)
+            query = (
+                sqlalchemy.select(SQLChatRoom)
+                    .select_from(SQLChatRoomUser)
+                    .join(SQLChatRoom, SQLChatRoom.id == SQLChatRoomUser.room_id)
+                    .where(SQLChatRoomUser.user_id == user_id)
+                    .options(sqlalchemy.orm.selectinload(SQLChatRoom.last_message))
+            )
             
             return [
                 APIUserChatRoom.model_validate(x)
                 for x
-                in await session.execute(query)]
+                in await session.scalars(query)]
     
     async def search_users_by_username(self,
                                        self_id: int,

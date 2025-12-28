@@ -85,12 +85,22 @@ class AuthorizationService:
             await session.commit()
 
     def decode_jwt(self, token: str) -> int:
+        '''
+        Retrieves user ID from encoded timed JWT. Function uses HS256
+        decoding algorithm. This function does not check if returned ID
+        points to valid existing user. Other functions that use ID should
+        validate it separately.
+
+        :raises ErrorUserJWTExpired: If JWT age is too large.
+        :raises ErrorUserJWTInvalid: If invalid JWT was provided. 
+        '''
+
         try:
             return int(
                 jwt.decode(
                     token,
                     self._jwt_secret,
-                    ('HS256',))['sub']) # TODO Get JWT algo from env
+                    ('HS256',))['sub'])
         except jwt.ExpiredSignatureError:
             ErrorUserJWTExpired(token=token) \
                 .raise_(fastapi.status.HTTP_401_UNAUTHORIZED, {'WWW-Authenticate': 'Bearer'})

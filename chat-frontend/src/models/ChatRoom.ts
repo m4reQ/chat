@@ -1,3 +1,4 @@
+import { Message } from "./Message.ts";
 import { UserForeign } from "./User.ts";
 
 export enum ChatRoomType {
@@ -23,4 +24,5 @@ export interface UserChatRoom {
     type: ChatRoomType;
     joined_at: Date;
     is_owner: boolean;
+    last_message?: Message;
 }

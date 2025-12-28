@@ -2,6 +2,7 @@ from enum import StrEnum
 from pydantic import BaseModel
 from datetime import datetime
 from sqlalchemy import DateTime, String, sql, orm, BigInteger, ForeignKey, Enum
+
 from app.models.sql import Base
 
 MAX_MESSAGE_LENGTH = 256

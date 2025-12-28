@@ -1,13 +1,16 @@
+import enum
 import typing
 import fastapi
 import fastapi.security
 import pydantic
 from dependency_injector.wiring import inject, Provide
 
-from app.services.room_service import RoomService
+from app.services.room_service import RoomService, RoomUsersOrder
 from app.services.auth_service import AuthorizationService
+from app.services.message_service import MessageService
 from app.models.chat_room import RoomType
-from app.models.errors import ErrorRoomAlreadyExists, ErrorRoomAlreadyJoined, ErrorRoomInternalJoin, ErrorRoomInvalidTypeChange, ErrorRoomNameTooLong, ErrorRoomNotFound, ErrorRoomNotOwner, ErrorRoomPrivateJoin, ErrorUserJWTExpired, ErrorUserJWTInvalid
+from app.models.errors import ErrorRoomAlreadyExists, ErrorRoomAlreadyJoined, ErrorRoomInternalJoin, ErrorRoomInvalidTypeChange, ErrorRoomNameTooLong, ErrorRoomNotFound, ErrorRoomNotOwner, ErrorRoomPrivateJoin, ErrorRoomUserNotJoined, ErrorUserJWTExpired, ErrorUserJWTInvalid
+from app.models.message import MessageIncoming, MessageType
 
 class CreateRoomData(pydantic.BaseModel):
     name: str
@@ -18,6 +21,10 @@ class UpdateRoomData(pydantic.BaseModel):
     name: str | None = None
     description: str | None = None
     type: RoomType | None = None
+
+class PutRoomMessageData(pydantic.BaseModel):
+    content: str
+    type: MessageType
 
 class CreateRoomResponse(pydantic.BaseModel):
     room_id: int
@@ -37,8 +44,9 @@ def get_user_id_from_jwt(user_jwt: str = fastapi.Depends(oauth2_scheme),
     name='Get chat room')
 @inject
 async def get_room(room_id: int,
+                   users_order: RoomUsersOrder = RoomUsersOrder.USERNAME,
                    room_service: RoomService = fastapi.Depends(Provide['room_service'])):
-    return await room_service.get_room_by_id(room_id)
+    return await room_service.get_room_by_id(room_id, users_order)
 
 @router.put(
     '/{room_id}',
@@ -55,6 +63,59 @@ async def update_room(room_id: int,
                       user_id: int = fastapi.Depends(get_user_id_from_jwt),
                       room_service: RoomService = fastapi.Depends(Provide['room_service'])):
     await room_service.update_room(room_id, user_id, data.name, data.description, data.type)
+
+@router.delete(
+    '/{room_id}',
+    name='Delete chat room')
+@inject
+async def delete_room(room_id: int,
+                      user_id: int,
+                      room_service: RoomService = fastapi.Depends(Provide['room_service'])):
+    await room_service.delete_room(room_id, user_id)
+
+@router.get(
+    '/{room_id}/users',
+    name='Get chat room users')
+@inject
+async def get_chat_room_users(room_id: int,
+                              offset: int = 0,
+                              limit: int = 10,
+                              room_service: RoomService = fastapi.Depends(Provide['room_service'])):
+    return await room_service.get_room_users(room_id, offset, limit)
+
+# TODO Use websocket
+@router.get(
+    '/{room_id}/messages',
+    name='Get last chat room messages')
+@inject
+async def get_last_room_messages(room_id: int,
+                                 offset: int = 0,
+                                 limit: int = 10,
+                                 room_service: RoomService = fastapi.Depends(Provide['room_service'])):
+    return await room_service.get_last_room_messages(room_id, offset, limit)
+
+@router.post(
+    '/{room_id}/messages',
+    name='Send message to chat room',
+    status_code=fastapi.status.HTTP_202_ACCEPTED,
+    responses={
+        fastapi.status.HTTP_404_NOT_FOUND: {'model': ErrorRoomUserNotJoined},
+        fastapi.status.HTTP_401_UNAUTHORIZED: {'model': typing.Union[ErrorUserJWTExpired, ErrorUserJWTInvalid]},
+    })
+@inject
+async def put_room_message(room_id: int,
+                           message_data: PutRoomMessageData,
+                           user_id: int = fastapi.Depends(get_user_id_from_jwt),
+                           room_service: RoomService = fastapi.Depends(Provide['room_service']),
+                           message_service: MessageService = fastapi.Depends(Provide['message_service'])):
+    await room_service.check_user_belongs_to(user_id, room_id)
+
+    message = MessageIncoming(
+        sender_id=user_id,
+        room_id=room_id,
+        content=message_data.content,
+        type=message_data.type)
+    await message_service.upload_message(message)
 
 @router.post(
     '/{room_id}/join',

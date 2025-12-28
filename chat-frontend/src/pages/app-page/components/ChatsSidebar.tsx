@@ -87,7 +87,7 @@ export default function ChatsSideBar({ user }: ChatsSideBarProps) {
             <div className={CSS.profilePictureContainer}>
                 <img
                     className={CSS.profilePicture}
-                    src={user.profilePictureURL} />
+                    src={user.profilePictureURL ?? "/assets/icons/profile_picture_stub.svg"} />
                 <ActivityIndicator color={activityStatusItems[activityStatusIndex].indicatorColor} />
             </div>
             <span className={CSS.usernameLabel}>{user.username}</span>
